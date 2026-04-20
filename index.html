@@ -5,35 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>RapidDocFlow — PDF Form Builder</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
-    --ink: #1e1024;
-    --ink2: #4a2d5a;
-    --ink3: #9a7aaa;
-    --rule: #e8d6f0;
-    --surface: #fdf7ff;
-    --white: #fffaff;
-    --accent: #6b2d8b;
-    --accent2: #8b4aab;
-    --accent-light: #f7eeff;
-    --danger: #b94060;
-    --chain-bg: #fdf0f5;
-    --chain-border: #e8b4cc;
-    --sub-bg: #f7eeff;
-    --sub-border: #c9a0e0;
-    --radius: 8px;
-    --shadow: 0 1px 3px rgba(30,16,36,0.10);
+    --ink: #1e1024; --ink2: #4a2d5a; --ink3: #9a7aaa;
+    --rule: #e8d6f0; --surface: #fdf7ff; --white: #fffaff;
+    --accent: #6b2d8b; --accent2: #8b4aab; --accent-light: #f7eeff;
+    --danger: #b94060; --chain-bg: #fdf0f5; --chain-border: #e8b4cc;
+    --sub-bg: #f7eeff; --sub-border: #c9a0e0; --radius: 8px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Outfit', sans-serif; background: var(--surface); color: var(--ink); min-height: 100vh; }
-
-  /* AUTH */
-  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  #loading-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 16px; }
+  .loading-logo { font-family: 'Nunito', sans-serif; font-size: 28px; font-weight: 800; color: var(--accent); }
+  .loading-spinner { width: 32px; height: 32px; border: 3px solid var(--rule); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #auth-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
   .auth-card { background: var(--white); border: 1px solid var(--rule); border-radius: 16px; padding: 3rem 2.5rem; width: 100%; max-width: 400px; }
   .auth-logo { font-family: 'Nunito', sans-serif; font-size: 32px; font-weight: 800; color: var(--accent); margin-bottom: 4px; letter-spacing: -0.5px; }
   .auth-tagline { font-size: 13px; color: var(--ink3); margin-bottom: 2rem; }
-  .auth-tabs { display: flex; gap: 0; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.5rem; }
+  .auth-tabs { display: flex; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; margin-bottom: 1.5rem; }
   .auth-tab { flex: 1; padding: 8px; text-align: center; font-size: 13px; cursor: pointer; background: var(--white); color: var(--ink3); border: none; transition: all 0.2s; }
   .auth-tab.active { background: var(--accent); color: white; }
   .field-group { margin-bottom: 1rem; }
@@ -42,9 +34,8 @@
   .field-group input:focus { border-color: var(--accent2); }
   .btn-primary { width: 100%; padding: 11px; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
   .btn-primary:hover { opacity: 0.88; }
-  .auth-msg { font-size: 12px; color: var(--danger); margin-top: 8px; min-height: 18px; }
-
-  /* APP LAYOUT */
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-msg { font-size: 12px; margin-top: 8px; min-height: 18px; }
   #app-screen { display: none; flex-direction: column; min-height: 100vh; }
   .topnav { background: var(--white); border-bottom: 1px solid var(--rule); padding: 0 2rem; display: flex; align-items: center; gap: 1.5rem; height: 54px; position: sticky; top: 0; z-index: 100; }
   .nav-logo { font-family: 'Nunito', sans-serif; font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: -0.3px; }
@@ -52,25 +43,23 @@
   .nav-logout { font-size: 13px; color: var(--ink3); cursor: pointer; border: 1px solid var(--rule); border-radius: 20px; padding: 4px 12px; transition: all 0.2s; }
   .nav-logout:hover { border-color: var(--ink3); color: var(--ink); }
   .app-body { display: grid; grid-template-columns: 260px 1fr; flex: 1; min-height: calc(100vh - 54px); }
-
-  /* SIDEBAR */
-  .sidebar { background: var(--white); border-right: 1px solid var(--rule); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar { background: var(--white); border-right: 1px solid var(--rule); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
   .sidebar-section { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); padding: 0 8px; margin: 12px 0 6px; }
   .template-item { padding: 9px 10px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink2); transition: all 0.15s; }
   .template-item:hover { background: var(--surface); }
   .template-item.active { background: var(--accent-light); border-color: var(--sub-border); color: var(--accent); font-weight: 500; }
   .template-item .ticon { width: 28px; height: 28px; border-radius: 6px; background: var(--rule); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
-  .template-item.active .ticon { background: var(--accent); }
   .template-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .del-tpl { font-size: 16px; color: var(--ink3); opacity: 0; cursor: pointer; padding: 0 2px; }
-  .template-item:hover .del-tpl { opacity: 1; }
+  .tpl-actions { display: flex; gap: 2px; opacity: 0; margin-left: auto; flex-shrink: 0; }
+  .template-item:hover .tpl-actions { opacity: 1; }
+  .tpl-action-btn { width: 22px; height: 22px; border-radius: 4px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--ink3); transition: all 0.15s; padding: 0; }
+  .tpl-action-btn:hover { background: var(--rule); color: var(--ink); }
+  .tpl-action-btn.danger:hover { background: #fde8e8; color: var(--danger); }
   .upload-zone { border: 1.5px dashed var(--rule); border-radius: var(--radius); padding: 14px 10px; text-align: center; cursor: pointer; margin-top: 4px; transition: all 0.2s; }
   .upload-zone:hover { border-color: var(--accent2); background: var(--accent-light); }
   .upload-zone input { display: none; }
   .upload-zone-text { font-size: 12px; color: var(--ink3); }
   .upload-zone-text strong { display: block; color: var(--accent); font-size: 13px; margin-bottom: 2px; }
-
-  /* MAIN EDITOR */
   .editor { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; max-width: 900px; }
   .editor-empty { display: flex; align-items: center; justify-content: center; flex: 1; padding: 4rem; text-align: center; color: var(--ink3); }
   .editor-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -78,9 +67,6 @@
   .editor-subtitle { font-size: 13px; color: var(--ink3); }
   .btn-gen { padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; transition: opacity 0.2s; display: flex; align-items: center; gap: 6px; }
   .btn-gen:hover { opacity: 0.88; }
-  .btn-gen:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* BOX */
   .box-card { background: var(--white); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
   .box-header { padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--rule); }
   .box-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -93,22 +79,15 @@
   .box-del:hover { opacity: 1; color: var(--danger); }
   .box-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .box-body.hidden { display: none; }
-
-  /* SENTENCE PREVIEW */
   .sentence-preview { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; color: var(--ink); line-height: 1.7; min-height: 44px; }
-  .sentence-preview .chain-part { color: var(--ink2); }
-  .sentence-preview .sub-part { color: var(--accent); font-weight: 500; }
-  .sentence-preview .empty-part { color: var(--ink3); font-style: italic; }
-
-  /* SEGMENTS (chains + subs in order) */
+  .chain-part { color: var(--ink2); }
+  .sub-part { color: var(--accent); font-weight: 500; }
   .segments { display: flex; flex-direction: column; gap: 8px; }
   .segment { display: flex; align-items: flex-start; gap: 10px; }
-  .seg-handle { color: var(--ink3); font-size: 13px; cursor: grab; padding: 6px 2px; margin-top: 4px; }
   .seg-content { flex: 1; }
   .seg-type-badge { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 20px; margin-bottom: 5px; }
-  .badge-chain { background: #fdf0f5; color: #8b2d55; border: 1px solid var(--chain-border); }
-  .badge-sub { background: #f7eeff; color: var(--accent); border: 1px solid var(--sub-border); }
-  .seg-row { display: flex; align-items: center; gap: 8px; }
+  .badge-chain { background: var(--chain-bg); color: #8b2d55; border: 1px solid var(--chain-border); }
+  .badge-sub { background: var(--sub-bg); color: var(--accent); border: 1px solid var(--sub-border); }
   .chain-input { width: 100%; padding: 8px 10px; border: 1px solid var(--chain-border); border-radius: var(--radius); font-family: inherit; font-size: 13px; background: var(--chain-bg); color: var(--ink); outline: none; }
   .chain-input:focus { border-color: #c47ab0; }
   .sub-config { display: flex; flex-direction: column; gap: 6px; }
@@ -127,8 +106,6 @@
   .btn-sub:hover { background: #eedeff; }
   .add-box-btn { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1.5px dashed var(--rule); border-radius: 12px; cursor: pointer; color: var(--ink3); font-size: 13px; font-family: inherit; background: transparent; transition: all 0.2s; width: 100%; justify-content: center; }
   .add-box-btn:hover { border-color: var(--accent2); color: var(--accent); background: var(--accent-light); }
-
-  /* FILL SCREEN */
   #fill-screen { display: none; padding: 2rem; max-width: 700px; margin: 0 auto; }
   .fill-header { margin-bottom: 2rem; }
   .fill-title { font-family: 'Nunito', sans-serif; font-size: 28px; margin-bottom: 4px; }
@@ -137,7 +114,6 @@
   .fill-box-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
   .fill-box-field { font-size: 11px; color: var(--ink3); margin-bottom: 14px; }
   .fill-segments { display: flex; flex-direction: column; gap: 10px; }
-  .fill-seg { }
   .fill-seg-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink3); margin-bottom: 4px; }
   .fill-chain-text { font-size: 14px; color: var(--ink2); padding: 8px 12px; background: var(--chain-bg); border-radius: var(--radius); border: 1px solid var(--chain-border); }
   .fill-input { width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 14px; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.2s; }
@@ -150,8 +126,6 @@
   .btn-back:hover { border-color: var(--ink3); }
   .btn-download { padding: 10px 24px; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .btn-download:hover { opacity: 0.88; }
-
-  /* MODAL */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 200; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--white); border-radius: 14px; padding: 2rem; width: 420px; max-width: 95vw; }
@@ -161,22 +135,18 @@
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
   .btn-cancel { padding: 9px 18px; background: transparent; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 13px; cursor: pointer; }
   .btn-confirm { padding: 9px 18px; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-family: inherit; font-size: 13px; cursor: pointer; }
-
   .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--ink); color: white; padding: 10px 18px; border-radius: var(--radius); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
   .toast.show { opacity: 1; }
   .mapping-select { padding: 7px 10px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; }
-
-  /* TEMPLATE ACTIONS */
-  .tpl-actions { display: flex; gap: 2px; opacity: 0; margin-left: auto; flex-shrink: 0; }
-  .template-item:hover .tpl-actions { opacity: 1; }
-  .tpl-action-btn { width: 22px; height: 22px; border-radius: 4px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--ink3); font-size: 13px; transition: all 0.15s; padding: 0; }
-  .tpl-action-btn:hover { background: var(--rule); color: var(--ink); }
-  .tpl-action-btn.danger:hover { background: #fde8e8; color: var(--danger); }
 </style>
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<div id="loading-screen">
+  <div class="loading-logo">RapidDocFlow</div>
+  <div class="loading-spinner"></div>
+</div>
+
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">RapidDocFlow</div>
@@ -188,23 +158,21 @@
     <div id="login-form">
       <div class="field-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••"/></div>
-      <button class="btn-primary" onclick="doLogin()">Sign in</button>
+      <button class="btn-primary" id="login-btn" onclick="doLogin()">Sign in</button>
     </div>
     <div id="signup-form" style="display:none">
       <div class="field-group"><label>Full name</label><input type="text" id="signup-name" placeholder="Jane Smith"/></div>
       <div class="field-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="signup-pw" placeholder="Min. 6 characters"/></div>
-      <button class="btn-primary" onclick="doSignup()">Create account</button>
+      <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create account</button>
     </div>
     <div class="auth-msg" id="auth-msg"></div>
   </div>
 </div>
 
-<!-- APP SCREEN -->
 <div id="app-screen">
   <nav class="topnav">
     <div class="nav-logo">RapidDocFlow</div>
-    <div id="nav-mode-label" style="font-size:13px;color:var(--ink3);"></div>
     <div class="nav-user">
       <span id="nav-user-name"></span>
       <span class="nav-logout" onclick="doLogout()">Sign out</span>
@@ -216,10 +184,7 @@
       <div id="template-list"></div>
       <div class="upload-zone" onclick="document.getElementById('pdf-upload').click()">
         <input type="file" id="pdf-upload" accept=".pdf" onchange="handlePdfUpload(event)"/>
-        <div class="upload-zone-text">
-          <strong>+ Upload PDF</strong>
-          Drag or click to add template
-        </div>
+        <div class="upload-zone-text"><strong>+ Upload PDF</strong>Drag or click to add template</div>
       </div>
     </div>
     <div id="editor-area" style="flex:1;overflow-y:auto;">
@@ -236,9 +201,9 @@
             <div class="editor-title" id="editor-title"></div>
             <div class="editor-subtitle" id="editor-subtitle"></div>
           </div>
-          <button class="btn-gen" id="fill-btn" onclick="openFillScreen()">
+          <button class="btn-gen" onclick="openFillScreen()">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Fill & Generate PDF
+            Fill &amp; Generate PDF
           </button>
         </div>
         <div id="boxes-list"></div>
@@ -248,7 +213,6 @@
   </div>
 </div>
 
-<!-- FILL SCREEN -->
 <div id="fill-screen">
   <div class="fill-header">
     <div class="fill-title" id="fill-title"></div>
@@ -264,7 +228,6 @@
   </div>
 </div>
 
-<!-- NEW TEMPLATE MODAL -->
 <div class="modal-overlay" id="new-tpl-modal">
   <div class="modal">
     <h3>Name your template</h3>
@@ -277,12 +240,11 @@
   </div>
 </div>
 
-<!-- RENAME MODAL -->
 <div class="modal-overlay" id="rename-modal">
   <div class="modal">
     <h3>Rename template</h3>
     <p>Enter a new name for this template.</p>
-    <div class="field-group"><label>Template name</label><input type="text" id="rename-input" placeholder="Template name" onkeydown="if(event.key==='Enter')confirmRename()"/></div>
+    <div class="field-group"><label>Template name</label><input type="text" id="rename-input" onkeydown="if(event.key==='Enter')confirmRename()"/></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeRenameModal()">Cancel</button>
       <button class="btn-confirm" onclick="confirmRename()">Save name</button>
@@ -290,12 +252,11 @@
   </div>
 </div>
 
-<!-- DUPLICATE MODAL -->
 <div class="modal-overlay" id="dupe-modal">
   <div class="modal">
     <h3>Duplicate template</h3>
-    <p>A full copy will be created with all boxes, chains, and sub-boxes. Give it a new name.</p>
-    <div class="field-group"><label>New template name</label><input type="text" id="dupe-name-input" placeholder="Copy of..." onkeydown="if(event.key==='Enter')confirmDuplicate()"/></div>
+    <p>A full copy will be created with all boxes, chains, and sub-boxes.</p>
+    <div class="field-group"><label>New template name</label><input type="text" id="dupe-name-input" onkeydown="if(event.key==='Enter')confirmDuplicate()"/></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeDupeModal()">Cancel</button>
       <button class="btn-confirm" onclick="confirmDuplicate()">Create copy</button>
@@ -306,26 +267,33 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── STATE ──────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://dvuatrfhvwnmmqxdsaxx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_o80d7JVDWB8N6ng1onp2yg_ZGkLKib0';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let currentUser = null;
+let activeTemplateId = null;
+let templates = {};
 let pendingPdfBytes = null;
 let pendingPdfName = '';
-let activeTemplateId = null;
-let db = loadDB();
 
-function loadDB() {
-  try { return JSON.parse(localStorage.getItem('rapiddocflow_db') || '{}'); } catch { return {}; }
-}
-function saveDB() { localStorage.setItem('rapiddocflow_db', JSON.stringify(db)); }
-function getUser(email) { return db.users && db.users[email]; }
-function getUserData(email) { return db.userData && db.userData[email] ? db.userData[email] : { templates: {} }; }
-function saveUserData(email, data) {
-  if (!db.userData) db.userData = {};
-  db.userData[email] = data;
-  saveDB();
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) { currentUser = session.user; await enterApp(session.user); }
+  else showScreen('auth');
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) { currentUser = session.user; await enterApp(session.user); }
+    else if (event === 'SIGNED_OUT') { currentUser = null; templates = {}; activeTemplateId = null; showScreen('auth'); }
+  });
 }
 
-// ── AUTH ───────────────────────────────────────────────────────────────────
+function showScreen(name) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = name === 'auth' ? 'flex' : 'none';
+  document.getElementById('app-screen').style.display = name === 'app' ? 'flex' : 'none';
+  document.getElementById('fill-screen').style.display = name === 'fill' ? 'block' : 'none';
+}
+
 function switchTab(tab) {
   document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
   document.getElementById('signup-form').style.display = tab === 'signup' ? '' : 'none';
@@ -333,606 +301,327 @@ function switchTab(tab) {
   document.getElementById('tab-signup').className = 'auth-tab' + (tab==='signup'?' active':'');
   document.getElementById('auth-msg').textContent = '';
 }
-function setAuthMsg(msg) { document.getElementById('auth-msg').textContent = msg; }
 
-function doSignup() {
+function setMsg(msg, ok) {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--accent)' : 'var(--danger)';
+}
+
+async function doSignup() {
   const name = document.getElementById('signup-name').value.trim();
   const email = document.getElementById('signup-email').value.trim().toLowerCase();
   const pw = document.getElementById('signup-pw').value;
-  if (!name || !email || !pw) return setAuthMsg('Please fill in all fields.');
-  if (pw.length < 6) return setAuthMsg('Password must be at least 6 characters.');
-  if (!db.users) db.users = {};
-  if (db.users[email]) return setAuthMsg('An account with this email already exists.');
-  db.users[email] = { name, email, pw };
-  saveDB();
-  loginUser(email, name);
-}
-function doLogin() {
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
-  const pw = document.getElementById('login-pw').value;
-  const user = getUser(email);
-  if (!user || user.pw !== pw) return setAuthMsg('Incorrect email or password.');
-  loginUser(email, user.name);
-}
-function loginUser(email, name) {
-  currentUser = { email, name };
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'flex';
-  document.getElementById('nav-user-name').textContent = name;
-  renderSidebar();
-}
-function doLogout() {
-  currentUser = null;
-  activeTemplateId = null;
-  document.getElementById('app-screen').style.display = 'none';
-  document.getElementById('fill-screen').style.display = 'none';
-  document.getElementById('auth-screen').style.display = 'flex';
+  if (!name||!email||!pw) return setMsg('Please fill in all fields.');
+  if (pw.length < 6) return setMsg('Password must be at least 6 characters.');
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  const { data, error } = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
+  btn.disabled = false; btn.textContent = 'Create account';
+  if (error) return setMsg(error.message);
+  if (data.user) await sb.from('profiles').insert({ id: data.user.id, name, email });
+  setMsg('Account created! Signing you in...', true);
 }
 
-// ── PDF UPLOAD ─────────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pw = document.getElementById('login-pw').value;
+  if (!email||!pw) return setMsg('Please enter your email and password.');
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (error) return setMsg('Incorrect email or password.');
+}
+
+async function doLogout() { await sb.auth.signOut(); }
+
+async function enterApp(user) {
+  const name = user.user_metadata?.name || user.email.split('@')[0];
+  document.getElementById('nav-user-name').textContent = name;
+  await loadTemplates();
+  renderSidebar();
+  showScreen('app');
+}
+
+async function loadTemplates() {
+  const { data } = await sb.from('templates').select('*').eq('user_id', currentUser.id).order('created_at');
+  templates = {};
+  (data||[]).forEach(r => { templates[r.id] = { id:r.id, name:r.name, pdfFields:r.pdf_fields||[], pdfB64:r.pdf_b64||'', boxes:r.boxes||[] }; });
+}
+
+async function cloudSave(tpl) {
+  await sb.from('templates').upsert({ id:tpl.id, user_id:currentUser.id, name:tpl.name, pdf_fields:tpl.pdfFields, pdf_b64:tpl.pdfB64, boxes:tpl.boxes, updated_at:new Date().toISOString() });
+}
+
+async function cloudDelete(id) {
+  await sb.from('templates').delete().eq('id', id).eq('user_id', currentUser.id);
+}
+
 function handlePdfUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = async function(ev) {
+  reader.onload = async ev => {
     pendingPdfBytes = ev.target.result;
-    pendingPdfName = file.name.replace(/\.pdf$/i, '');
+    pendingPdfName = file.name.replace(/\.pdf$/i,'');
     document.getElementById('new-tpl-name').value = pendingPdfName;
     document.getElementById('new-tpl-modal').classList.add('open');
   };
-  reader.readAsArrayBuffer(file);
-  e.target.value = '';
+  reader.readAsArrayBuffer(file); e.target.value='';
 }
 
-async function getPDFFields(arrayBuffer) {
-  try {
-    const { PDFDocument } = PDFLib;
-    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
-    const form = pdfDoc.getForm();
-    return form.getFields().map(f => f.getName());
-  } catch { return []; }
+async function getPDFFields(buf) {
+  try { const {PDFDocument}=PDFLib; const d=await PDFDocument.load(buf,{ignoreEncryption:true}); return d.getForm().getFields().map(f=>f.getName()); } catch { return []; }
 }
 
-function closeModal() {
-  document.getElementById('new-tpl-modal').classList.remove('open');
-  pendingPdfBytes = null;
-}
+function closeModal() { document.getElementById('new-tpl-modal').classList.remove('open'); pendingPdfBytes=null; }
 
 async function confirmNewTemplate() {
-  const name = document.getElementById('new-tpl-name').value.trim();
-  if (!name) return;
+  const name = document.getElementById('new-tpl-name').value.trim(); if (!name) return;
   const fields = await getPDFFields(pendingPdfBytes);
   const pdfB64 = arrayBufferToBase64(pendingPdfBytes);
   const id = 'tpl_' + Date.now();
-  const userData = getUserData(currentUser.email);
-  userData.templates[id] = {
-    id, name,
-    pdfB64,
-    pdfFields: fields,
-    boxes: []
-  };
-  saveUserData(currentUser.email, userData);
-  closeModal();
-  renderSidebar();
-  selectTemplate(id);
-  showToast('Template saved!');
+  const tpl = { id, name, pdfFields:fields, pdfB64, boxes:[] };
+  templates[id] = tpl;
+  await cloudSave(tpl);
+  closeModal(); renderSidebar(); selectTemplate(id); showToast('Template saved to your account!');
 }
 
-function arrayBufferToBase64(buf) {
-  const bytes = new Uint8Array(buf);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-function base64ToArrayBuffer(b64) {
-  const bin = atob(b64);
-  const buf = new ArrayBuffer(bin.length);
-  const view = new Uint8Array(buf);
-  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
-  return buf;
-}
+function arrayBufferToBase64(buf) { const b=new Uint8Array(buf); let s=''; for(let i=0;i<b.byteLength;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+function base64ToArrayBuffer(b64) { const bin=atob(b64); const buf=new ArrayBuffer(bin.length); const v=new Uint8Array(buf); for(let i=0;i<bin.length;i++) v[i]=bin.charCodeAt(i); return buf; }
 
-// ── SIDEBAR ────────────────────────────────────────────────────────────────
 function renderSidebar() {
   const list = document.getElementById('template-list');
-  const userData = getUserData(currentUser.email);
-  const templates = Object.values(userData.templates);
+  const tpls = Object.values(templates);
   list.innerHTML = '';
-  if (templates.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:6px 10px;">No templates yet</div>';
-    return;
-  }
-  templates.forEach(tpl => {
+  if (!tpls.length) { list.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px 10px;">No templates yet</div>'; return; }
+  tpls.forEach(tpl => {
     const el = document.createElement('div');
-    el.className = 'template-item' + (activeTemplateId === tpl.id ? ' active' : '');
-    el.innerHTML = `
-      <div class="ticon" style="${activeTemplateId===tpl.id?'background:var(--accent);':''}">📄</div>
-      <div class="template-name">${escHtml(tpl.name)}</div>
+    el.className = 'template-item' + (activeTemplateId===tpl.id?' active':'');
+    el.innerHTML = `<div class="ticon">📄</div><div class="template-name">${escHtml(tpl.name)}</div>
       <div class="tpl-actions" onclick="event.stopPropagation()">
-        <button class="tpl-action-btn" title="Rename" onclick="openRenameModal('${tpl.id}')">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="tpl-action-btn" title="Duplicate" onclick="openDupeModal('${tpl.id}')">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1"/><path d="M2 8V2a1 1 0 011-1h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
-        </button>
-        <button class="tpl-action-btn danger" title="Delete" onclick="deleteTemplate('${tpl.id}')">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M4 5v4M8 5v4M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </div>
-    `;
+        <button class="tpl-action-btn" title="Rename" onclick="openRenameModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg></button>
+        <button class="tpl-action-btn" title="Duplicate" onclick="openDupeModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1"/><path d="M2 8V2a1 1 0 011-1h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg></button>
+        <button class="tpl-action-btn danger" title="Delete" onclick="deleteTemplate('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M4 5v4M8 5v4M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>`;
     el.onclick = () => selectTemplate(tpl.id);
     list.appendChild(el);
   });
 }
 
-function deleteTemplate(id) {
-  if (!confirm('Delete this template? This cannot be undone.')) return;
-  const userData = getUserData(currentUser.email);
-  delete userData.templates[id];
-  saveUserData(currentUser.email, userData);
-  if (activeTemplateId === id) {
-    activeTemplateId = null;
-    document.getElementById('editor').style.display = 'none';
-    document.getElementById('empty-state').style.display = '';
-  }
-  renderSidebar();
-  showToast('Template deleted.');
+async function deleteTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  delete templates[id]; await cloudDelete(id);
+  if (activeTemplateId===id) { activeTemplateId=null; document.getElementById('editor').style.display='none'; document.getElementById('empty-state').style.display=''; }
+  renderSidebar(); showToast('Template deleted.');
 }
 
-// ── RENAME ─────────────────────────────────────────────────────────────────
-let renamingId = null;
-function openRenameModal(id) {
-  renamingId = id;
-  const userData = getUserData(currentUser.email);
-  const tpl = userData.templates[id];
-  document.getElementById('rename-input').value = tpl.name;
-  document.getElementById('rename-modal').classList.add('open');
-  setTimeout(() => document.getElementById('rename-input').select(), 50);
-}
-function closeRenameModal() {
-  document.getElementById('rename-modal').classList.remove('open');
-  renamingId = null;
-}
-function confirmRename() {
-  const name = document.getElementById('rename-input').value.trim();
-  if (!name) return;
-  const userData = getUserData(currentUser.email);
-  userData.templates[renamingId].name = name;
-  saveUserData(currentUser.email, userData);
-  closeRenameModal();
-  renderSidebar();
-  if (activeTemplateId === renamingId) {
-    document.getElementById('editor-title').textContent = name;
-  }
-  showToast('Template renamed.');
+let renamingId=null;
+function openRenameModal(id) { renamingId=id; document.getElementById('rename-input').value=templates[id].name; document.getElementById('rename-modal').classList.add('open'); setTimeout(()=>document.getElementById('rename-input').select(),50); }
+function closeRenameModal() { document.getElementById('rename-modal').classList.remove('open'); renamingId=null; }
+async function confirmRename() {
+  const name=document.getElementById('rename-input').value.trim(); if(!name) return;
+  templates[renamingId].name=name; await cloudSave(templates[renamingId]);
+  closeRenameModal(); renderSidebar();
+  if(activeTemplateId===renamingId) document.getElementById('editor-title').textContent=name;
+  showToast('Renamed.');
 }
 
-// ── DUPLICATE ──────────────────────────────────────────────────────────────
-let dupingId = null;
-function openDupeModal(id) {
-  dupingId = id;
-  const userData = getUserData(currentUser.email);
-  const tpl = userData.templates[id];
-  document.getElementById('dupe-name-input').value = 'Copy of ' + tpl.name;
-  document.getElementById('dupe-modal').classList.add('open');
-  setTimeout(() => document.getElementById('dupe-name-input').select(), 50);
-}
-function closeDupeModal() {
-  document.getElementById('dupe-modal').classList.remove('open');
-  dupingId = null;
-}
-function confirmDuplicate() {
-  const name = document.getElementById('dupe-name-input').value.trim();
-  if (!name) return;
-  const userData = getUserData(currentUser.email);
-  const src = userData.templates[dupingId];
-  const newId = 'tpl_' + Date.now();
-  // Deep clone all boxes and segments with fresh IDs
-  const newBoxes = JSON.parse(JSON.stringify(src.boxes)).map(box => {
-    box.id = 'box_' + Math.random().toString(36).slice(2,9);
-    box.segments = (box.segments || []).map(seg => {
-      seg.id = 'seg_' + Math.random().toString(36).slice(2,9);
-      return seg;
-    });
-    return box;
-  });
-  userData.templates[newId] = {
-    id: newId,
-    name,
-    pdfB64: src.pdfB64,
-    pdfFields: [...src.pdfFields],
-    boxes: newBoxes
-  };
-  saveUserData(currentUser.email, userData);
-  closeDupeModal();
-  renderSidebar();
-  selectTemplate(newId);
-  showToast('Template duplicated — now editing the copy.');
+let dupingId=null;
+function openDupeModal(id) { dupingId=id; document.getElementById('dupe-name-input').value='Copy of '+templates[id].name; document.getElementById('dupe-modal').classList.add('open'); setTimeout(()=>document.getElementById('dupe-name-input').select(),50); }
+function closeDupeModal() { document.getElementById('dupe-modal').classList.remove('open'); dupingId=null; }
+async function confirmDuplicate() {
+  const name=document.getElementById('dupe-name-input').value.trim(); if(!name) return;
+  const src=templates[dupingId]; const newId='tpl_'+Date.now();
+  const newBoxes=JSON.parse(JSON.stringify(src.boxes)).map(box=>{ box.id='box_'+Math.random().toString(36).slice(2,9); box.segments=(box.segments||[]).map(seg=>{seg.id='seg_'+Math.random().toString(36).slice(2,9);return seg;}); return box; });
+  const tpl={id:newId,name,pdfB64:src.pdfB64,pdfFields:[...src.pdfFields],boxes:newBoxes};
+  templates[newId]=tpl; await cloudSave(tpl);
+  closeDupeModal(); renderSidebar(); selectTemplate(newId); showToast('Duplicated!');
 }
 
-function selectTemplate(id) {
-  activeTemplateId = id;
-  renderSidebar();
-  renderEditor();
-}
-
-// ── EDITOR ─────────────────────────────────────────────────────────────────
-function getTemplate() {
-  if (!currentUser || !activeTemplateId) return null;
-  return getUserData(currentUser.email).templates[activeTemplateId];
-}
-function saveTemplate(tpl) {
-  const userData = getUserData(currentUser.email);
-  userData.templates[tpl.id] = tpl;
-  saveUserData(currentUser.email, userData);
-}
+function selectTemplate(id) { activeTemplateId=id; renderSidebar(); renderEditor(); }
+function getTemplate() { return activeTemplateId ? templates[activeTemplateId] : null; }
+async function saveTemplate(tpl) { templates[tpl.id]=tpl; await cloudSave(tpl); }
 
 function renderEditor() {
-  const tpl = getTemplate();
-  if (!tpl) return;
-  document.getElementById('empty-state').style.display = 'none';
-  document.getElementById('editor').style.display = 'flex';
-  document.getElementById('editor-title').textContent = tpl.name;
-  const fc = tpl.pdfFields.length;
-  document.getElementById('editor-subtitle').textContent =
-    fc > 0 ? `${fc} fillable field${fc!==1?'s':''} detected in PDF` : 'No fillable fields detected — boxes will still work';
+  const tpl=getTemplate(); if(!tpl) return;
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('editor').style.display='flex';
+  document.getElementById('editor-title').textContent=tpl.name;
+  const fc=tpl.pdfFields.length;
+  document.getElementById('editor-subtitle').textContent=fc>0?`${fc} fillable field${fc!==1?'s':''} detected`:'No fillable fields detected — boxes will still work';
   renderBoxes();
 }
 
 function renderBoxes() {
-  const tpl = getTemplate();
-  const container = document.getElementById('boxes-list');
-  container.innerHTML = '';
-  tpl.boxes.forEach((box, bi) => {
-    container.appendChild(buildBoxEl(box, bi, tpl.pdfFields));
-  });
+  const tpl=getTemplate(); const c=document.getElementById('boxes-list'); c.innerHTML='';
+  tpl.boxes.forEach((box,bi)=>c.appendChild(buildBoxEl(box,bi,tpl.pdfFields)));
 }
 
-function buildBoxEl(box, bi, pdfFields) {
-  const div = document.createElement('div');
-  div.className = 'box-card';
-  div.id = 'box-' + box.id;
-
-  const isOpen = box.open !== false;
-
-  div.innerHTML = `
-    <div class="box-header" onclick="toggleBox('${box.id}')">
-      <div class="box-num">${bi + 1}</div>
-      <div class="box-title-wrap">
-        <div class="box-title">${box.name || 'Unnamed box'}</div>
-        <div class="box-field-tag">→ PDF field: <em>${box.pdfField || 'not mapped'}</em></div>
+function buildBoxEl(box,bi,pdfFields) {
+  const div=document.createElement('div'); div.className='box-card'; div.id='box-'+box.id;
+  const isOpen=box.open!==false;
+  div.innerHTML=`<div class="box-header" onclick="toggleBox('${box.id}')">
+    <div class="box-num">${bi+1}</div>
+    <div class="box-title-wrap"><div class="box-title">${box.name||'Unnamed box'}</div><div class="box-field-tag">→ PDF field: <em>${box.pdfField||'not mapped'}</em></div></div>
+    <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
+    <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
+  </div>
+  <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Box name</div>
+        <input style="width:100%;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:inherit;font-size:13px;color:var(--ink);background:var(--white);outline:none;" value="${box.name||''}" placeholder="e.g. Reason for cover" oninput="updateBoxField('${box.id}','name',this.value)"/>
       </div>
-      <span class="box-chevron ${isOpen ? 'open' : ''}" id="chev-${box.id}">▼</span>
-      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
-    </div>
-    <div class="box-body ${isOpen ? '' : 'hidden'}" id="body-${box.id}">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:160px;">
-          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Box name</div>
-          <input style="width:100%;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:inherit;font-size:13px;color:var(--ink);background:var(--white);outline:none;"
-            value="${box.name || ''}" placeholder="e.g. Reason for cover"
-            oninput="updateBoxField('${box.id}','name',this.value)"/>
-        </div>
-        <div style="flex:1;min-width:160px;">
-          <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Maps to PDF field</div>
-          <select class="mapping-select" onchange="updateBoxField('${box.id}','pdfField',this.value)">
-            <option value="">— not mapped —</option>
-            ${pdfFields.map(f => `<option value="${f}" ${box.pdfField===f?'selected':''}>${f}</option>`).join('')}
-            <option value="__custom__" ${!pdfFields.includes(box.pdfField)&&box.pdfField?'selected':''}>Custom field name...</option>
-          </select>
-        </div>
-      </div>
-      ${!pdfFields.includes(box.pdfField) && box.pdfField ? `
-        <input style="width:100%;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:inherit;font-size:13px;color:var(--ink);background:var(--white);outline:none;margin-top:-4px;"
-          value="${box.pdfField}" placeholder="Enter exact PDF field name"
-          oninput="updateBoxField('${box.id}','pdfField',this.value)"/>
-      ` : ''}
-      <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Sentence builder</div>
-      <div class="sentence-preview" id="preview-${box.id}">${buildSentencePreview(box, true)}</div>
-      <div class="segments" id="segs-${box.id}">
-        ${box.segments.map((seg, si) => buildSegmentHTML(box.id, seg, si)).join('')}
-      </div>
-      <div class="add-seg-row">
-        <button class="btn-add-seg btn-chain" onclick="addSegment('${box.id}','chain')">+ Chain (fixed text)</button>
-        <button class="btn-add-seg btn-sub" onclick="addSegment('${box.id}','sub')">+ Sub-box (variable)</button>
+      <div style="flex:1;min-width:160px;">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Maps to PDF field</div>
+        <select class="mapping-select" onchange="updateBoxField('${box.id}','pdfField',this.value)">
+          <option value="">— not mapped —</option>
+          ${pdfFields.map(f=>`<option value="${f}" ${box.pdfField===f?'selected':''}>${f}</option>`).join('')}
+          <option value="__custom__" ${!pdfFields.includes(box.pdfField)&&box.pdfField?'selected':''}>Custom field name...</option>
+        </select>
       </div>
     </div>
-  `;
+    <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Sentence builder</div>
+    <div class="sentence-preview" id="preview-${box.id}">${buildSentencePreview(box)}</div>
+    <div class="segments" id="segs-${box.id}">${box.segments.map((seg,si)=>buildSegmentHTML(box.id,seg,si)).join('')}</div>
+    <div class="add-seg-row">
+      <button class="btn-add-seg btn-chain" onclick="addSegment('${box.id}','chain')">+ Chain (fixed text)</button>
+      <button class="btn-add-seg btn-sub" onclick="addSegment('${box.id}','sub')">+ Sub-box (variable)</button>
+    </div>
+  </div>`;
   return div;
 }
 
-function buildSegmentHTML(boxId, seg, si) {
-  if (seg.type === 'chain') {
-    return `
-      <div class="segment" id="seg-${seg.id}">
-        <div class="seg-content">
-          <span class="seg-type-badge badge-chain">Chain ${si+1} — fixed text</span>
-          <input class="chain-input" value="${escHtml(seg.text || '')}" placeholder="Type fixed text here..."
-            oninput="updateSegField('${boxId}','${seg.id}','text',this.value)"/>
-        </div>
-        <span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span>
-      </div>
-    `;
-  } else {
-    const typeOpts = ['text','dropdown','number','date'].map(t =>
-      `<option value="${t}" ${seg.inputType===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number / currency',date:'Date'}[t]}</option>`
-    ).join('');
-    return `
-      <div class="segment" id="seg-${seg.id}">
-        <div class="seg-content">
-          <span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span>
-          <div class="sub-config">
-            <div class="sub-row">
-              <input class="sub-label-input" value="${escHtml(seg.label || '')}" placeholder="Sub-box label..."
-                oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/>
-              <select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">
-                ${typeOpts}
-              </select>
-            </div>
-            ${seg.inputType === 'dropdown' ? `
-              <textarea class="dropdown-opts" rows="2" placeholder="Option 1&#10;Option 2&#10;Option 3"
-                oninput="updateSegField('${boxId}','${seg.id}','options',this.value)">${escHtml((seg.options||[]).join('\n'))}</textarea>
-              <div class="opts-hint">One option per line</div>
-            ` : ''}
-          </div>
-        </div>
-        <span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span>
-      </div>
-    `;
-  }
+function buildSegmentHTML(boxId,seg,si) {
+  if(seg.type==='chain') return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-chain">Chain ${si+1} — fixed text</span><input class="chain-input" value="${escHtml(seg.text||'')}" placeholder="Type fixed text here..." oninput="updateSegField('${boxId}','${seg.id}','text',this.value)"/></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
+  const typeOpts=['text','dropdown','number','date'].map(t=>`<option value="${t}" ${seg.inputType===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number / currency',date:'Date'}[t]}</option>`).join('');
+  return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${seg.inputType==='dropdown'?`<textarea class="dropdown-opts" rows="2" placeholder="Option 1&#10;Option 2&#10;Option 3" oninput="updateSegField('${boxId}','${seg.id}','options',this.value)">${escHtml((seg.options||[]).join('\n'))}</textarea><div class="opts-hint">One option per line</div>`:''}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
 }
 
-function buildSentencePreview(box, isEditor) {
-  if (!box.segments || box.segments.length === 0) return '<span style="color:var(--ink3);font-style:italic;">Add chains and sub-boxes below to build your sentence...</span>';
-  return box.segments.map(seg => {
-    if (seg.type === 'chain') return `<span class="chain-part">${escHtml(seg.text || '…')}</span>`;
-    return `<span class="sub-part">[${escHtml(seg.label || 'Sub-box')}]</span>`;
-  }).join(' ');
+function buildSentencePreview(box) {
+  if(!box.segments||!box.segments.length) return '<span style="color:var(--ink3);font-style:italic;">Add chains and sub-boxes below...</span>';
+  return box.segments.map(seg=>seg.type==='chain'?`<span class="chain-part">${escHtml(seg.text||'…')}</span>`:`<span class="sub-part">[${escHtml(seg.label||'Sub-box')}]</span>`).join(' ');
 }
 
-function updateBoxField(boxId, field, value) {
-  const tpl = getTemplate();
-  const box = tpl.boxes.find(b => b.id === boxId);
-  if (!box) return;
-  box[field] = value;
-  saveTemplate(tpl);
-  if (field === 'name') {
-    const el = document.querySelector(`#box-${boxId} .box-title`);
-    if (el) el.textContent = value || 'Unnamed box';
-  }
-  if (field === 'pdfField') {
-    const el = document.querySelector(`#box-${boxId} .box-field-tag em`);
-    if (el) el.textContent = value || 'not mapped';
-    rerenderBoxes();
-  }
+async function updateBoxField(boxId,field,value) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
+  box[field]=value; await saveTemplate(tpl);
+  if(field==='name'){const el=document.querySelector(`#box-${boxId} .box-title`);if(el)el.textContent=value||'Unnamed box';}
+  if(field==='pdfField') rerenderBoxes();
 }
 
-function updateSegField(boxId, segId, field, value) {
-  const tpl = getTemplate();
-  const box = tpl.boxes.find(b => b.id === boxId);
-  const seg = box && box.segments.find(s => s.id === segId);
-  if (!seg) return;
-  if (field === 'options') seg.options = value.split('\n').filter(l => l.trim());
-  else seg[field] = value;
-  saveTemplate(tpl);
-  const prev = document.getElementById('preview-' + boxId);
-  if (prev) prev.innerHTML = buildSentencePreview(box, true);
+async function updateSegField(boxId,segId,field,value) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  if(field==='options') seg.options=value.split('\n').filter(l=>l.trim()); else seg[field]=value;
+  await saveTemplate(tpl);
+  const prev=document.getElementById('preview-'+boxId); if(prev) prev.innerHTML=buildSentencePreview(box);
 }
 
-function addSegment(boxId, type) {
-  const tpl = getTemplate();
-  const box = tpl.boxes.find(b => b.id === boxId);
-  if (!box) return;
-  const seg = { id: 'seg_' + Date.now(), type };
-  if (type === 'chain') seg.text = '';
-  else { seg.label = ''; seg.inputType = 'text'; seg.options = []; }
-  box.segments.push(seg);
-  saveTemplate(tpl);
-  const container = document.getElementById('segs-' + boxId);
-  if (container) {
-    const div = document.createElement('div');
-    div.innerHTML = buildSegmentHTML(boxId, seg, box.segments.length - 1);
-    container.appendChild(div.firstElementChild);
-  }
-  updateSentencePreview(boxId);
+async function addSegment(boxId,type) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
+  const seg={id:'seg_'+Date.now(),type};
+  if(type==='chain') seg.text=''; else{seg.label='';seg.inputType='text';seg.options=[];}
+  box.segments.push(seg); await saveTemplate(tpl);
+  const c=document.getElementById('segs-'+boxId);
+  if(c){const d=document.createElement('div');d.innerHTML=buildSegmentHTML(boxId,seg,box.segments.length-1);c.appendChild(d.firstElementChild);}
+  const prev=document.getElementById('preview-'+boxId); if(prev) prev.innerHTML=buildSentencePreview(box);
 }
 
-function deleteSeg(boxId, segId) {
-  const tpl = getTemplate();
-  const box = tpl.boxes.find(b => b.id === boxId);
-  if (!box) return;
-  box.segments = box.segments.filter(s => s.id !== segId);
-  saveTemplate(tpl);
-  const el = document.getElementById('seg-' + segId);
-  if (el) el.remove();
-  updateSentencePreview(boxId);
-  rerenderSegmentBadges(boxId, box);
+async function deleteSeg(boxId,segId) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
+  box.segments=box.segments.filter(s=>s.id!==segId); await saveTemplate(tpl);
+  const el=document.getElementById('seg-'+segId); if(el) el.remove();
+  const prev=document.getElementById('preview-'+boxId); if(prev) prev.innerHTML=buildSentencePreview(box);
+  const c=document.getElementById('segs-'+boxId); if(c) c.innerHTML=box.segments.map((seg,si)=>buildSegmentHTML(boxId,seg,si)).join('');
 }
 
-function rerenderSegmentBadges(boxId, box) {
-  const container = document.getElementById('segs-' + boxId);
-  if (!container) return;
-  container.innerHTML = box.segments.map((seg, si) => buildSegmentHTML(boxId, seg, si)).join('');
+async function toggleBox(boxId) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
+  box.open=!box.open; await saveTemplate(tpl);
+  const body=document.getElementById('body-'+boxId); const chev=document.getElementById('chev-'+boxId);
+  if(body) body.classList.toggle('hidden',!box.open); if(chev) chev.classList.toggle('open',box.open);
 }
 
-function updateSentencePreview(boxId) {
-  const tpl = getTemplate();
-  const box = tpl && tpl.boxes.find(b => b.id === boxId);
-  const prev = document.getElementById('preview-' + boxId);
-  if (prev && box) prev.innerHTML = buildSentencePreview(box, true);
+async function addBox() {
+  const tpl=getTemplate();
+  const box={id:'box_'+Date.now(),name:'',pdfField:'',segments:[],open:true};
+  tpl.boxes.push(box); await saveTemplate(tpl);
+  const c=document.getElementById('boxes-list'); c.appendChild(buildBoxEl(box,tpl.boxes.length-1,tpl.pdfFields));
 }
 
-function toggleBox(boxId) {
-  const tpl = getTemplate();
-  const box = tpl.boxes.find(b => b.id === boxId);
-  box.open = !box.open;
-  saveTemplate(tpl);
-  const body = document.getElementById('body-' + boxId);
-  const chev = document.getElementById('chev-' + boxId);
-  if (body) body.classList.toggle('hidden', !box.open);
-  if (chev) chev.classList.toggle('open', box.open);
+async function deleteBox(boxId) {
+  if(!confirm('Remove this box?')) return;
+  const tpl=getTemplate(); tpl.boxes=tpl.boxes.filter(b=>b.id!==boxId); await saveTemplate(tpl);
+  const el=document.getElementById('box-'+boxId); if(el) el.remove();
+  tpl.boxes.forEach((box,bi)=>{const n=document.querySelector(`#box-${box.id} .box-num`);if(n)n.textContent=bi+1;});
 }
 
-function addBox() {
-  const tpl = getTemplate();
-  const box = { id: 'box_' + Date.now(), name: '', pdfField: '', segments: [], open: true };
-  tpl.boxes.push(box);
-  saveTemplate(tpl);
-  const container = document.getElementById('boxes-list');
-  const el = buildBoxEl(box, tpl.boxes.length - 1, tpl.pdfFields);
-  container.appendChild(el);
-}
+function rerenderBoxes(){renderBoxes();}
 
-function deleteBox(boxId) {
-  if (!confirm('Remove this box?')) return;
-  const tpl = getTemplate();
-  tpl.boxes = tpl.boxes.filter(b => b.id !== boxId);
-  saveTemplate(tpl);
-  const el = document.getElementById('box-' + boxId);
-  if (el) el.remove();
-  renumberBoxes(tpl);
-}
-
-function renumberBoxes(tpl) {
-  tpl.boxes.forEach((box, bi) => {
-    const numEl = document.querySelector(`#box-${box.id} .box-num`);
-    if (numEl) numEl.textContent = bi + 1;
-  });
-}
-
-function rerenderBoxes() {
-  renderBoxes();
-}
-
-// ── FILL SCREEN ────────────────────────────────────────────────────────────
-let fillAnswers = {};
-
+let fillAnswers={};
 function openFillScreen() {
-  const tpl = getTemplate();
-  fillAnswers = {};
-  document.getElementById('app-screen').style.display = 'none';
-  document.getElementById('fill-screen').style.display = 'block';
-  document.getElementById('fill-title').textContent = tpl.name;
-
-  const container = document.getElementById('fill-boxes');
-  container.innerHTML = '';
-
-  tpl.boxes.forEach((box, bi) => {
-    const div = document.createElement('div');
-    div.className = 'fill-box';
-    let segsHTML = '';
-    box.segments.forEach((seg, si) => {
-      if (seg.type === 'chain') {
-        segsHTML += `
-          <div class="fill-seg">
-            <div class="fill-seg-label">Chain — fixed</div>
-            <div class="fill-chain-text">${escHtml(seg.text || '(empty chain)')}</div>
-          </div>`;
-      } else {
-        const inputId = `fill-${box.id}-${seg.id}`;
-        let inputHTML = '';
-        if (seg.inputType === 'dropdown') {
-          const opts = (seg.options || []).map(o => `<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');
-          inputHTML = `<select class="fill-input" id="${inputId}" onchange="recordAnswer('${box.id}','${seg.id}',this.value)"><option value="">Select...</option>${opts}</select>`;
-        } else if (seg.inputType === 'number') {
-          inputHTML = `<input type="number" class="fill-input" id="${inputId}" placeholder="Enter amount..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
-        } else if (seg.inputType === 'date') {
-          inputHTML = `<input type="date" class="fill-input" id="${inputId}" oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
-        } else {
-          inputHTML = `<input type="text" class="fill-input" id="${inputId}" placeholder="Type here..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
-        }
-        segsHTML += `
-          <div class="fill-seg">
-            <div class="fill-seg-label">${escHtml(seg.label || 'Sub-box')}</div>
-            ${inputHTML}
-          </div>`;
+  const tpl=getTemplate(); fillAnswers={}; showScreen('fill');
+  document.getElementById('fill-title').textContent=tpl.name;
+  const c=document.getElementById('fill-boxes'); c.innerHTML='';
+  tpl.boxes.forEach((box,bi)=>{
+    const div=document.createElement('div'); div.className='fill-box';
+    let segsHTML='';
+    box.segments.forEach(seg=>{
+      if(seg.type==='chain') segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">Chain — fixed</div><div class="fill-chain-text">${escHtml(seg.text||'(empty chain)')}</div></div>`;
+      else {
+        const inputId=`fill-${box.id}-${seg.id}`;
+        let inputHTML='';
+        if(seg.inputType==='dropdown'){const opts=(seg.options||[]).map(o=>`<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');inputHTML=`<select class="fill-input" id="${inputId}" onchange="recordAnswer('${box.id}','${seg.id}',this.value)"><option value="">Select...</option>${opts}</select>`;}
+        else if(seg.inputType==='number') inputHTML=`<input type="number" class="fill-input" id="${inputId}" placeholder="Enter amount..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
+        else if(seg.inputType==='date') inputHTML=`<input type="date" class="fill-input" id="${inputId}" oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
+        else inputHTML=`<input type="text" class="fill-input" id="${inputId}" placeholder="Type here..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
+        segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Sub-box')}</div>${inputHTML}</div>`;
       }
     });
-    div.innerHTML = `
-      <div class="fill-box-title">Box ${bi+1}: ${escHtml(box.name || 'Unnamed')}</div>
-      <div class="fill-box-field">→ PDF field: <em>${escHtml(box.pdfField || 'not mapped')}</em></div>
-      <div class="fill-segments">${segsHTML}</div>
-      <div class="fill-preview" id="fp-${box.id}">${buildFilledSentence(box)}</div>
-    `;
-    container.appendChild(div);
+    div.innerHTML=`<div class="fill-box-title">Box ${bi+1}: ${escHtml(box.name||'Unnamed')}</div><div class="fill-box-field">→ PDF field: <em>${escHtml(box.pdfField||'not mapped')}</em></div><div class="fill-segments">${segsHTML}</div><div class="fill-preview" id="fp-${box.id}">${buildFilledSentence(box)}</div>`;
+    c.appendChild(div);
   });
 }
 
-function closeFillScreen() {
-  document.getElementById('fill-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'flex';
-}
+function closeFillScreen(){showScreen('app');}
 
-function recordAnswer(boxId, segId, value) {
-  if (!fillAnswers[boxId]) fillAnswers[boxId] = {};
-  fillAnswers[boxId][segId] = value;
-  const tpl = getTemplate();
-  const box = tpl.boxes.find(b => b.id === boxId);
-  const prev = document.getElementById('fp-' + boxId);
-  if (prev && box) prev.innerHTML = buildFilledSentence(box);
+function recordAnswer(boxId,segId,value) {
+  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+  fillAnswers[boxId][segId]=value;
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
+  const prev=document.getElementById('fp-'+boxId); if(prev&&box) prev.innerHTML=buildFilledSentence(box);
 }
 
 function buildFilledSentence(box) {
-  if (!box.segments || box.segments.length === 0) return '<span style="color:var(--ink3);font-style:italic;">No segments defined</span>';
-  return box.segments.map(seg => {
-    if (seg.type === 'chain') return `<span class="cp">${escHtml(seg.text || '')}</span>`;
-    const val = fillAnswers[box.id] && fillAnswers[box.id][seg.id];
-    if (val) return `<span class="sp">${escHtml(val)}</span>`;
-    return `<span style="color:var(--ink3);font-style:italic;">[${escHtml(seg.label || 'Sub-box')}]</span>`;
+  if(!box.segments||!box.segments.length) return '<span style="color:var(--ink3);font-style:italic;">No segments defined</span>';
+  return box.segments.map(seg=>{
+    if(seg.type==='chain') return `<span class="cp">${escHtml(seg.text||'')}</span>`;
+    const val=fillAnswers[box.id]&&fillAnswers[box.id][seg.id];
+    return val?`<span class="sp">${escHtml(val)}</span>`:`<span style="color:var(--ink3);font-style:italic;">[${escHtml(seg.label||'Sub-box')}]</span>`;
   }).join(' ');
 }
 
 async function generatePDF() {
-  const tpl = getTemplate();
+  const tpl=getTemplate();
   try {
-    const { PDFDocument } = PDFLib;
-    const arrayBuf = base64ToArrayBuffer(tpl.pdfB64);
-    const pdfDoc = await PDFDocument.load(arrayBuf, { ignoreEncryption: true });
-    const form = pdfDoc.getForm();
-
-    tpl.boxes.forEach(box => {
-      if (!box.pdfField) return;
-      const assembled = box.segments.map(seg => {
-        if (seg.type === 'chain') return seg.text || '';
-        return (fillAnswers[box.id] && fillAnswers[box.id][seg.id]) || '';
-      }).join(' ').trim();
-
-      try {
-        const field = form.getTextField(box.pdfField);
-        field.setText(assembled);
-      } catch {
-        try {
-          const field = form.getDropdown(box.pdfField);
-          field.select(assembled);
-        } catch {}
-      }
+    const {PDFDocument}=PDFLib; const pdfDoc=await PDFDocument.load(base64ToArrayBuffer(tpl.pdfB64),{ignoreEncryption:true}); const form=pdfDoc.getForm();
+    tpl.boxes.forEach(box=>{
+      if(!box.pdfField) return;
+      const assembled=box.segments.map(seg=>seg.type==='chain'?seg.text||'':(fillAnswers[box.id]&&fillAnswers[box.id][seg.id])||'').join(' ').trim();
+      try{form.getTextField(box.pdfField).setText(assembled);}catch{try{form.getDropdown(box.pdfField).select(assembled);}catch{}}
     });
-
-    form.flatten();
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = tpl.name + ' — filled.pdf';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    showToast('PDF downloaded!');
-  } catch (err) {
-    showToast('Error generating PDF: ' + err.message);
-  }
+    form.flatten(); const pdfBytes=await pdfDoc.save();
+    const blob=new Blob([pdfBytes],{type:'application/pdf'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=tpl.name+' — filled.pdf'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000); showToast('PDF downloaded!');
+  } catch(err){showToast('Error: '+err.message);}
 }
 
-// ── UTILS ──────────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
+function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+init();
 </script>
 </body>
 </html>
