@@ -96,9 +96,19 @@
   .sub-type-select { padding: 7px 10px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; }
   .dropdown-opts { padding: 6px 10px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; width: 100%; color: var(--ink); outline: none; background: var(--white); }
   .opts-hint { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+  /* Checkbox options editor */
+  .checkbox-opts-editor { display: flex; flex-direction: column; gap: 6px; }
+  .checkbox-opt-row { display: flex; gap: 6px; align-items: flex-start; }
+  .checkbox-opt-label { padding: 6px 8px; border: 1px solid var(--sub-border); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--sub-bg); color: var(--accent); outline: none; width: 130px; flex-shrink: 0; }
+  .checkbox-opt-text { padding: 6px 8px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; }
+  .checkbox-opt-del { color: var(--ink3); cursor: pointer; font-size: 16px; padding: 4px; opacity: 0.5; flex-shrink: 0; margin-top: 2px; }
+  .checkbox-opt-del:hover { opacity: 1; color: var(--danger); }
+  .btn-add-opt { font-size: 11px; color: var(--accent); cursor: pointer; padding: 4px 0; background: none; border: none; font-family: inherit; }
+  /* Date format selector */
+  .date-format-select { padding: 7px 10px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; }
   .seg-del { color: var(--ink3); cursor: pointer; font-size: 18px; padding: 4px; opacity: 0.5; transition: opacity 0.15s; flex-shrink: 0; margin-top: 2px; }
   .seg-del:hover { opacity: 1; color: var(--danger); }
-  .add-seg-row { display: flex; gap: 8px; }
+  .add-seg-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn-add-seg { padding: 7px 14px; border-radius: var(--radius); font-family: inherit; font-size: 12px; cursor: pointer; border: 1px solid; transition: all 0.15s; }
   .btn-chain { background: var(--chain-bg); color: #8b2d55; border-color: var(--chain-border); }
   .btn-chain:hover { background: #fce4ef; }
@@ -118,6 +128,14 @@
   .fill-chain-text { font-size: 14px; color: var(--ink2); padding: 8px 12px; background: var(--chain-bg); border-radius: var(--radius); border: 1px solid var(--chain-border); }
   .fill-input { width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 14px; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.2s; }
   .fill-input:focus { border-color: var(--accent2); }
+  /* Checkbox fill styles */
+  .checkbox-fill-list { display: flex; flex-direction: column; gap: 8px; }
+  .checkbox-fill-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+  .checkbox-fill-item:hover { border-color: var(--accent2); background: var(--accent-light); }
+  .checkbox-fill-item.checked { border-color: var(--accent); background: var(--accent-light); }
+  .checkbox-fill-item input[type=checkbox] { margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
+  .checkbox-fill-label { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .checkbox-fill-text { font-size: 12px; color: var(--ink3); margin-top: 2px; font-style: italic; }
   .fill-preview { margin-top: 14px; padding: 10px 12px; background: var(--surface); border-radius: var(--radius); font-size: 13px; color: var(--ink); line-height: 1.7; border-left: 3px solid var(--accent2); }
   .fill-preview .cp { color: var(--ink2); }
   .fill-preview .sp { color: var(--accent); font-weight: 500; }
@@ -239,7 +257,6 @@
     </div>
   </div>
 </div>
-
 <div class="modal-overlay" id="rename-modal">
   <div class="modal">
     <h3>Rename template</h3>
@@ -251,7 +268,6 @@
     </div>
   </div>
 </div>
-
 <div class="modal-overlay" id="dupe-modal">
   <div class="modal">
     <h3>Duplicate template</h3>
@@ -263,7 +279,6 @@
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -271,180 +286,166 @@ const SUPABASE_URL = 'https://dvuatrfhvwnmmqxdsaxx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_o80d7JVDWB8N6ng1onp2yg_ZGkLKib0';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentUser = null;
-let activeTemplateId = null;
-let templates = {};
-let pendingPdfBytes = null;
-let pendingPdfName = '';
+let currentUser=null, activeTemplateId=null, templates={}, pendingPdfBytes=null, pendingPdfName='';
 
+// ── DEBOUNCE: waits 600ms after last keystroke before saving ────────────────
+const debounceTimers = {};
+function debounce(key, fn, delay=600) {
+  clearTimeout(debounceTimers[key]);
+  debounceTimers[key] = setTimeout(fn, delay);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
-  if (session) { currentUser = session.user; await enterApp(session.user); }
+  if (session) { currentUser=session.user; await enterApp(session.user); }
   else showScreen('auth');
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) { currentUser = session.user; await enterApp(session.user); }
-    else if (event === 'SIGNED_OUT') { currentUser = null; templates = {}; activeTemplateId = null; showScreen('auth'); }
+  sb.auth.onAuthStateChange(async (event,session) => {
+    if (event==='SIGNED_IN'&&session) { currentUser=session.user; await enterApp(session.user); }
+    else if (event==='SIGNED_OUT') { currentUser=null; templates={}; activeTemplateId=null; showScreen('auth'); }
   });
 }
 
 function showScreen(name) {
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('auth-screen').style.display = name === 'auth' ? 'flex' : 'none';
-  document.getElementById('app-screen').style.display = name === 'app' ? 'flex' : 'none';
-  document.getElementById('fill-screen').style.display = name === 'fill' ? 'block' : 'none';
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('auth-screen').style.display=name==='auth'?'flex':'none';
+  document.getElementById('app-screen').style.display=name==='app'?'flex':'none';
+  document.getElementById('fill-screen').style.display=name==='fill'?'block':'none';
 }
 
 function switchTab(tab) {
-  document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
-  document.getElementById('signup-form').style.display = tab === 'signup' ? '' : 'none';
-  document.getElementById('tab-login').className = 'auth-tab' + (tab==='login'?' active':'');
-  document.getElementById('tab-signup').className = 'auth-tab' + (tab==='signup'?' active':'');
-  document.getElementById('auth-msg').textContent = '';
+  document.getElementById('login-form').style.display=tab==='login'?'':'none';
+  document.getElementById('signup-form').style.display=tab==='signup'?'':'none';
+  document.getElementById('tab-login').className='auth-tab'+(tab==='login'?' active':'');
+  document.getElementById('tab-signup').className='auth-tab'+(tab==='signup'?' active':'');
+  document.getElementById('auth-msg').textContent='';
 }
-
-function setMsg(msg, ok) {
-  const el = document.getElementById('auth-msg');
-  el.textContent = msg;
-  el.style.color = ok ? 'var(--accent)' : 'var(--danger)';
-}
+function setMsg(msg,ok){const el=document.getElementById('auth-msg');el.textContent=msg;el.style.color=ok?'var(--accent)':'var(--danger)';}
 
 async function doSignup() {
-  const name = document.getElementById('signup-name').value.trim();
-  const email = document.getElementById('signup-email').value.trim().toLowerCase();
-  const pw = document.getElementById('signup-pw').value;
-  if (!name||!email||!pw) return setMsg('Please fill in all fields.');
-  if (pw.length < 6) return setMsg('Password must be at least 6 characters.');
-  const btn = document.getElementById('signup-btn');
-  btn.disabled = true; btn.textContent = 'Creating...';
-  const { data, error } = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
-  btn.disabled = false; btn.textContent = 'Create account';
-  if (error) return setMsg(error.message);
-  if (data.user) await sb.from('profiles').insert({ id: data.user.id, name, email });
-  setMsg('Account created! Signing you in...', true);
+  const name=document.getElementById('signup-name').value.trim();
+  const email=document.getElementById('signup-email').value.trim().toLowerCase();
+  const pw=document.getElementById('signup-pw').value;
+  if(!name||!email||!pw) return setMsg('Please fill in all fields.');
+  if(pw.length<6) return setMsg('Password must be at least 6 characters.');
+  const btn=document.getElementById('signup-btn'); btn.disabled=true; btn.textContent='Creating...';
+  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{name}}});
+  btn.disabled=false; btn.textContent='Create account';
+  if(error) return setMsg(error.message);
+  if(data.user) await sb.from('profiles').insert({id:data.user.id,name,email});
+  setMsg('Account created! Signing you in...',true);
 }
 
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
-  const pw = document.getElementById('login-pw').value;
-  if (!email||!pw) return setMsg('Please enter your email and password.');
-  const btn = document.getElementById('login-btn');
-  btn.disabled = true; btn.textContent = 'Signing in...';
-  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-  btn.disabled = false; btn.textContent = 'Sign in';
-  if (error) return setMsg('Incorrect email or password.');
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pw=document.getElementById('login-pw').value;
+  if(!email||!pw) return setMsg('Please enter your email and password.');
+  const btn=document.getElementById('login-btn'); btn.disabled=true; btn.textContent='Signing in...';
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  btn.disabled=false; btn.textContent='Sign in';
+  if(error) return setMsg('Incorrect email or password.');
 }
-
-async function doLogout() { await sb.auth.signOut(); }
+async function doLogout(){await sb.auth.signOut();}
 
 async function enterApp(user) {
-  const name = user.user_metadata?.name || user.email.split('@')[0];
-  document.getElementById('nav-user-name').textContent = name;
-  await loadTemplates();
-  renderSidebar();
-  showScreen('app');
+  const name=user.user_metadata?.name||user.email.split('@')[0];
+  document.getElementById('nav-user-name').textContent=name;
+  await loadTemplates(); renderSidebar(); showScreen('app');
 }
 
 async function loadTemplates() {
-  const { data } = await sb.from('templates').select('*').eq('user_id', currentUser.id).order('created_at');
-  templates = {};
-  (data||[]).forEach(r => { templates[r.id] = { id:r.id, name:r.name, pdfFields:r.pdf_fields||[], pdfB64:r.pdf_b64||'', boxes:r.boxes||[] }; });
+  const {data}=await sb.from('templates').select('*').eq('user_id',currentUser.id).order('created_at');
+  templates={};
+  (data||[]).forEach(r=>{templates[r.id]={id:r.id,name:r.name,pdfFields:r.pdf_fields||[],pdfB64:r.pdf_b64||'',boxes:r.boxes||[]};});
 }
 
 async function cloudSave(tpl) {
-  await sb.from('templates').upsert({ id:tpl.id, user_id:currentUser.id, name:tpl.name, pdf_fields:tpl.pdfFields, pdf_b64:tpl.pdfB64, boxes:tpl.boxes, updated_at:new Date().toISOString() });
+  await sb.from('templates').upsert({id:tpl.id,user_id:currentUser.id,name:tpl.name,pdf_fields:tpl.pdfFields,pdf_b64:tpl.pdfB64,boxes:tpl.boxes,updated_at:new Date().toISOString()});
 }
-
-async function cloudDelete(id) {
-  await sb.from('templates').delete().eq('id', id).eq('user_id', currentUser.id);
-}
+async function cloudDelete(id){await sb.from('templates').delete().eq('id',id).eq('user_id',currentUser.id);}
 
 function handlePdfUpload(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async ev => {
-    pendingPdfBytes = ev.target.result;
-    pendingPdfName = file.name.replace(/\.pdf$/i,'');
-    document.getElementById('new-tpl-name').value = pendingPdfName;
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    pendingPdfBytes=ev.target.result;
+    pendingPdfName=file.name.replace(/\.pdf$/i,'');
+    document.getElementById('new-tpl-name').value=pendingPdfName;
     document.getElementById('new-tpl-modal').classList.add('open');
   };
   reader.readAsArrayBuffer(file); e.target.value='';
 }
-
-async function getPDFFields(buf) {
-  try { const {PDFDocument}=PDFLib; const d=await PDFDocument.load(buf,{ignoreEncryption:true}); return d.getForm().getFields().map(f=>f.getName()); } catch { return []; }
+async function getPDFFields(buf){try{const{PDFDocument}=PDFLib;const d=await PDFDocument.load(buf,{ignoreEncryption:true});return d.getForm().getFields().map(f=>f.getName());}catch{return[];}}
+function closeModal(){document.getElementById('new-tpl-modal').classList.remove('open');pendingPdfBytes=null;}
+async function confirmNewTemplate(){
+  const name=document.getElementById('new-tpl-name').value.trim();if(!name)return;
+  const fields=await getPDFFields(pendingPdfBytes);
+  const pdfB64=arrayBufferToBase64(pendingPdfBytes);
+  const id='tpl_'+Date.now();
+  const tpl={id,name,pdfFields:fields,pdfB64,boxes:[]};
+  templates[id]=tpl; await cloudSave(tpl);
+  closeModal();renderSidebar();selectTemplate(id);showToast('Template saved!');
 }
+function arrayBufferToBase64(buf){const b=new Uint8Array(buf);let s='';for(let i=0;i<b.byteLength;i++)s+=String.fromCharCode(b[i]);return btoa(s);}
+function base64ToArrayBuffer(b64){const bin=atob(b64);const buf=new ArrayBuffer(bin.length);const v=new Uint8Array(buf);for(let i=0;i<bin.length;i++)v[i]=bin.charCodeAt(i);return buf;}
 
-function closeModal() { document.getElementById('new-tpl-modal').classList.remove('open'); pendingPdfBytes=null; }
-
-async function confirmNewTemplate() {
-  const name = document.getElementById('new-tpl-name').value.trim(); if (!name) return;
-  const fields = await getPDFFields(pendingPdfBytes);
-  const pdfB64 = arrayBufferToBase64(pendingPdfBytes);
-  const id = 'tpl_' + Date.now();
-  const tpl = { id, name, pdfFields:fields, pdfB64, boxes:[] };
-  templates[id] = tpl;
-  await cloudSave(tpl);
-  closeModal(); renderSidebar(); selectTemplate(id); showToast('Template saved to your account!');
-}
-
-function arrayBufferToBase64(buf) { const b=new Uint8Array(buf); let s=''; for(let i=0;i<b.byteLength;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
-function base64ToArrayBuffer(b64) { const bin=atob(b64); const buf=new ArrayBuffer(bin.length); const v=new Uint8Array(buf); for(let i=0;i<bin.length;i++) v[i]=bin.charCodeAt(i); return buf; }
-
-function renderSidebar() {
-  const list = document.getElementById('template-list');
-  const tpls = Object.values(templates);
-  list.innerHTML = '';
-  if (!tpls.length) { list.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px 10px;">No templates yet</div>'; return; }
-  tpls.forEach(tpl => {
-    const el = document.createElement('div');
-    el.className = 'template-item' + (activeTemplateId===tpl.id?' active':'');
-    el.innerHTML = `<div class="ticon">📄</div><div class="template-name">${escHtml(tpl.name)}</div>
+function renderSidebar(){
+  const list=document.getElementById('template-list');
+  const tpls=Object.values(templates); list.innerHTML='';
+  if(!tpls.length){list.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px 10px;">No templates yet</div>';return;}
+  tpls.forEach(tpl=>{
+    const el=document.createElement('div');
+    el.className='template-item'+(activeTemplateId===tpl.id?' active':'');
+    el.innerHTML=`<div class="ticon">📄</div><div class="template-name">${escHtml(tpl.name)}</div>
       <div class="tpl-actions" onclick="event.stopPropagation()">
         <button class="tpl-action-btn" title="Rename" onclick="openRenameModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg></button>
         <button class="tpl-action-btn" title="Duplicate" onclick="openDupeModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1"/><path d="M2 8V2a1 1 0 011-1h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg></button>
         <button class="tpl-action-btn danger" title="Delete" onclick="deleteTemplate('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M4 5v4M8 5v4M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>`;
-    el.onclick = () => selectTemplate(tpl.id);
-    list.appendChild(el);
+    el.onclick=()=>selectTemplate(tpl.id); list.appendChild(el);
   });
 }
-
-async function deleteTemplate(id) {
-  if (!confirm('Delete this template?')) return;
-  delete templates[id]; await cloudDelete(id);
-  if (activeTemplateId===id) { activeTemplateId=null; document.getElementById('editor').style.display='none'; document.getElementById('empty-state').style.display=''; }
-  renderSidebar(); showToast('Template deleted.');
+async function deleteTemplate(id){
+  if(!confirm('Delete this template?'))return;
+  delete templates[id];await cloudDelete(id);
+  if(activeTemplateId===id){activeTemplateId=null;document.getElementById('editor').style.display='none';document.getElementById('empty-state').style.display='';}
+  renderSidebar();showToast('Deleted.');
 }
-
 let renamingId=null;
-function openRenameModal(id) { renamingId=id; document.getElementById('rename-input').value=templates[id].name; document.getElementById('rename-modal').classList.add('open'); setTimeout(()=>document.getElementById('rename-input').select(),50); }
-function closeRenameModal() { document.getElementById('rename-modal').classList.remove('open'); renamingId=null; }
-async function confirmRename() {
-  const name=document.getElementById('rename-input').value.trim(); if(!name) return;
-  templates[renamingId].name=name; await cloudSave(templates[renamingId]);
-  closeRenameModal(); renderSidebar();
-  if(activeTemplateId===renamingId) document.getElementById('editor-title').textContent=name;
+function openRenameModal(id){renamingId=id;document.getElementById('rename-input').value=templates[id].name;document.getElementById('rename-modal').classList.add('open');setTimeout(()=>document.getElementById('rename-input').select(),50);}
+function closeRenameModal(){document.getElementById('rename-modal').classList.remove('open');renamingId=null;}
+async function confirmRename(){
+  const name=document.getElementById('rename-input').value.trim();if(!name)return;
+  templates[renamingId].name=name;await cloudSave(templates[renamingId]);
+  closeRenameModal();renderSidebar();
+  if(activeTemplateId===renamingId)document.getElementById('editor-title').textContent=name;
   showToast('Renamed.');
 }
-
 let dupingId=null;
-function openDupeModal(id) { dupingId=id; document.getElementById('dupe-name-input').value='Copy of '+templates[id].name; document.getElementById('dupe-modal').classList.add('open'); setTimeout(()=>document.getElementById('dupe-name-input').select(),50); }
-function closeDupeModal() { document.getElementById('dupe-modal').classList.remove('open'); dupingId=null; }
-async function confirmDuplicate() {
-  const name=document.getElementById('dupe-name-input').value.trim(); if(!name) return;
-  const src=templates[dupingId]; const newId='tpl_'+Date.now();
-  const newBoxes=JSON.parse(JSON.stringify(src.boxes)).map(box=>{ box.id='box_'+Math.random().toString(36).slice(2,9); box.segments=(box.segments||[]).map(seg=>{seg.id='seg_'+Math.random().toString(36).slice(2,9);return seg;}); return box; });
+function openDupeModal(id){dupingId=id;document.getElementById('dupe-name-input').value='Copy of '+templates[id].name;document.getElementById('dupe-modal').classList.add('open');setTimeout(()=>document.getElementById('dupe-name-input').select(),50);}
+function closeDupeModal(){document.getElementById('dupe-modal').classList.remove('open');dupingId=null;}
+async function confirmDuplicate(){
+  const name=document.getElementById('dupe-name-input').value.trim();if(!name)return;
+  const src=templates[dupingId];const newId='tpl_'+Date.now();
+  const newBoxes=JSON.parse(JSON.stringify(src.boxes)).map(box=>{box.id='box_'+Math.random().toString(36).slice(2,9);box.segments=(box.segments||[]).map(seg=>{seg.id='seg_'+Math.random().toString(36).slice(2,9);return seg;});return box;});
   const tpl={id:newId,name,pdfB64:src.pdfB64,pdfFields:[...src.pdfFields],boxes:newBoxes};
-  templates[newId]=tpl; await cloudSave(tpl);
-  closeDupeModal(); renderSidebar(); selectTemplate(newId); showToast('Duplicated!');
+  templates[newId]=tpl;await cloudSave(tpl);
+  closeDupeModal();renderSidebar();selectTemplate(newId);showToast('Duplicated!');
 }
 
-function selectTemplate(id) { activeTemplateId=id; renderSidebar(); renderEditor(); }
-function getTemplate() { return activeTemplateId ? templates[activeTemplateId] : null; }
-async function saveTemplate(tpl) { templates[tpl.id]=tpl; await cloudSave(tpl); }
+function selectTemplate(id){activeTemplateId=id;renderSidebar();renderEditor();}
+function getTemplate(){return activeTemplateId?templates[activeTemplateId]:null;}
 
-function renderEditor() {
-  const tpl=getTemplate(); if(!tpl) return;
+// Save immediately to memory, debounce cloud save
+function saveTemplateLocal(tpl){templates[tpl.id]=tpl;}
+async function saveTemplate(tpl){
+  saveTemplateLocal(tpl);
+  debounce('save-'+tpl.id, ()=>cloudSave(tpl), 600);
+}
+async function saveTemplateNow(tpl){saveTemplateLocal(tpl);await cloudSave(tpl);}
+
+function renderEditor(){
+  const tpl=getTemplate();if(!tpl)return;
   document.getElementById('empty-state').style.display='none';
   document.getElementById('editor').style.display='flex';
   document.getElementById('editor-title').textContent=tpl.name;
@@ -453,13 +454,13 @@ function renderEditor() {
   renderBoxes();
 }
 
-function renderBoxes() {
-  const tpl=getTemplate(); const c=document.getElementById('boxes-list'); c.innerHTML='';
+function renderBoxes(){
+  const tpl=getTemplate();const c=document.getElementById('boxes-list');c.innerHTML='';
   tpl.boxes.forEach((box,bi)=>c.appendChild(buildBoxEl(box,bi,tpl.pdfFields)));
 }
 
-function buildBoxEl(box,bi,pdfFields) {
-  const div=document.createElement('div'); div.className='box-card'; div.id='box-'+box.id;
+function buildBoxEl(box,bi,pdfFields){
+  const div=document.createElement('div');div.className='box-card';div.id='box-'+box.id;
   const isOpen=box.open!==false;
   div.innerHTML=`<div class="box-header" onclick="toggleBox('${box.id}')">
     <div class="box-num">${bi+1}</div>
@@ -493,74 +494,127 @@ function buildBoxEl(box,bi,pdfFields) {
   return div;
 }
 
-function buildSegmentHTML(boxId,seg,si) {
+function buildSegmentHTML(boxId,seg,si){
   if(seg.type==='chain') return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-chain">Chain ${si+1} — fixed text</span><input class="chain-input" value="${escHtml(seg.text||'')}" placeholder="Type fixed text here..." oninput="updateSegField('${boxId}','${seg.id}','text',this.value)"/></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
-  const typeOpts=['text','dropdown','number','date'].map(t=>`<option value="${t}" ${seg.inputType===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number / currency',date:'Date'}[t]}</option>`).join('');
-  return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${seg.inputType==='dropdown'?`<textarea class="dropdown-opts" rows="2" placeholder="Option 1&#10;Option 2&#10;Option 3" oninput="updateSegField('${boxId}','${seg.id}','options',this.value)">${escHtml((seg.options||[]).join('\n'))}</textarea><div class="opts-hint">One option per line</div>`:''}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
+
+  // Sub-box types including new: checkbox
+  const typeOpts=['text','dropdown','number','date','checkbox'].map(t=>
+    `<option value="${t}" ${seg.inputType===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number / currency',date:'Date',checkbox:'Checkboxes'}[t]}</option>`
+  ).join('');
+
+  let extraConfig='';
+  if(seg.inputType==='dropdown'){
+    extraConfig=`<textarea class="dropdown-opts" rows="2" placeholder="Option 1&#10;Option 2&#10;Option 3" oninput="updateSegField('${boxId}','${seg.id}','options',this.value)">${escHtml((seg.options||[]).join('\n'))}</textarea><div class="opts-hint">One option per line</div>`;
+  } else if(seg.inputType==='date'){
+    const fmt=seg.dateFormat||'DD/MM/YYYY';
+    extraConfig=`<div style="display:flex;align-items:center;gap:8px;margin-top:4px;"><span style="font-size:12px;color:var(--ink3);">Date format:</span><select class="date-format-select" onchange="updateSegField('${boxId}','${seg.id}','dateFormat',this.value)"><option value="DD/MM/YYYY" ${fmt==='DD/MM/YYYY'?'selected':''}>DD/MM/YYYY (e.g. 16/04/2026)</option><option value="MM/DD/YYYY" ${fmt==='MM/DD/YYYY'?'selected':''}>MM/DD/YYYY (e.g. 04/16/2026)</option></select></div>`;
+  } else if(seg.inputType==='checkbox'){
+    const opts=seg.checkboxOptions||[];
+    const rows=opts.map((opt,oi)=>`
+      <div class="checkbox-opt-row" id="cbopt-${seg.id}-${oi}">
+        <input class="checkbox-opt-label" value="${escHtml(opt.label||'')}" placeholder="Label (short)" oninput="updateCheckboxOpt('${boxId}','${seg.id}',${oi},'label',this.value)"/>
+        <input class="checkbox-opt-text" value="${escHtml(opt.text||'')}" placeholder="Text to insert when checked..." oninput="updateCheckboxOpt('${boxId}','${seg.id}',${oi},'text',this.value)"/>
+        <span class="checkbox-opt-del" onclick="deleteCheckboxOpt('${boxId}','${seg.id}',${oi})">×</span>
+      </div>`).join('');
+    extraConfig=`<div class="checkbox-opts-editor">
+      <div style="font-size:11px;color:var(--ink3);margin-bottom:4px;">Each option has a <b>label</b> (shown to user) and <b>text</b> (inserted into sentence):</div>
+      <div id="cbopts-${seg.id}">${rows}</div>
+      <button class="btn-add-opt" onclick="addCheckboxOpt('${boxId}','${seg.id}')">+ Add option</button>
+    </div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Join selected items with: <input style="padding:3px 6px;border:1px solid var(--rule);border-radius:4px;font-size:11px;width:80px;" value="${escHtml(seg.joinWith||', ')}" oninput="updateSegField('${boxId}','${seg.id}','joinWith',this.value)" placeholder=", "/></div>`;
+  }
+
+  return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${extraConfig}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
 }
 
-function buildSentencePreview(box) {
+// ── CHECKBOX OPTION MANAGEMENT ──────────────────────────────────────────────
+function addCheckboxOpt(boxId, segId) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  if(!seg.checkboxOptions) seg.checkboxOptions=[];
+  seg.checkboxOptions.push({label:'',text:''});
+  saveTemplate(tpl);
+  rerenderBoxes();
+}
+function updateCheckboxOpt(boxId, segId, idx, field, value) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  if(!seg.checkboxOptions) seg.checkboxOptions=[];
+  if(!seg.checkboxOptions[idx]) seg.checkboxOptions[idx]={label:'',text:''};
+  seg.checkboxOptions[idx][field]=value;
+  saveTemplate(tpl);
+}
+function deleteCheckboxOpt(boxId, segId, idx) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  seg.checkboxOptions.splice(idx,1);
+  saveTemplate(tpl); rerenderBoxes();
+}
+
+function buildSentencePreview(box){
   if(!box.segments||!box.segments.length) return '<span style="color:var(--ink3);font-style:italic;">Add chains and sub-boxes below...</span>';
   return box.segments.map(seg=>seg.type==='chain'?`<span class="chain-part">${escHtml(seg.text||'…')}</span>`:`<span class="sub-part">[${escHtml(seg.label||'Sub-box')}]</span>`).join(' ');
 }
 
-async function updateBoxField(boxId,field,value) {
+// updateBoxField: immediate UI update, debounced save
+function updateBoxField(boxId,field,value){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
-  box[field]=value; await saveTemplate(tpl);
+  box[field]=value; saveTemplate(tpl);
   if(field==='name'){const el=document.querySelector(`#box-${boxId} .box-title`);if(el)el.textContent=value||'Unnamed box';}
   if(field==='pdfField') rerenderBoxes();
 }
 
-async function updateSegField(boxId,segId,field,value) {
+function updateSegField(boxId,segId,field,value){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
   if(field==='options') seg.options=value.split('\n').filter(l=>l.trim()); else seg[field]=value;
-  await saveTemplate(tpl);
+  saveTemplate(tpl);
   const prev=document.getElementById('preview-'+boxId); if(prev) prev.innerHTML=buildSentencePreview(box);
 }
 
-async function addSegment(boxId,type) {
+async function addSegment(boxId,type){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
   const seg={id:'seg_'+Date.now(),type};
-  if(type==='chain') seg.text=''; else{seg.label='';seg.inputType='text';seg.options=[];}
-  box.segments.push(seg); await saveTemplate(tpl);
+  if(type==='chain') seg.text='';
+  else{seg.label='';seg.inputType='text';seg.options=[];seg.checkboxOptions=[];seg.dateFormat='DD/MM/YYYY';seg.joinWith=', ';}
+  box.segments.push(seg);
+  await saveTemplateNow(tpl);
   const c=document.getElementById('segs-'+boxId);
   if(c){const d=document.createElement('div');d.innerHTML=buildSegmentHTML(boxId,seg,box.segments.length-1);c.appendChild(d.firstElementChild);}
-  const prev=document.getElementById('preview-'+boxId); if(prev) prev.innerHTML=buildSentencePreview(box);
+  const prev=document.getElementById('preview-'+boxId);if(prev)prev.innerHTML=buildSentencePreview(box);
 }
 
-async function deleteSeg(boxId,segId) {
+async function deleteSeg(boxId,segId){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
-  box.segments=box.segments.filter(s=>s.id!==segId); await saveTemplate(tpl);
-  const el=document.getElementById('seg-'+segId); if(el) el.remove();
-  const prev=document.getElementById('preview-'+boxId); if(prev) prev.innerHTML=buildSentencePreview(box);
-  const c=document.getElementById('segs-'+boxId); if(c) c.innerHTML=box.segments.map((seg,si)=>buildSegmentHTML(boxId,seg,si)).join('');
+  box.segments=box.segments.filter(s=>s.id!==segId);
+  await saveTemplateNow(tpl);
+  const el=document.getElementById('seg-'+segId);if(el)el.remove();
+  const prev=document.getElementById('preview-'+boxId);if(prev)prev.innerHTML=buildSentencePreview(box);
+  const c=document.getElementById('segs-'+boxId);if(c)c.innerHTML=box.segments.map((seg,si)=>buildSegmentHTML(boxId,seg,si)).join('');
 }
 
-async function toggleBox(boxId) {
+async function toggleBox(boxId){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
-  box.open=!box.open; await saveTemplate(tpl);
-  const body=document.getElementById('body-'+boxId); const chev=document.getElementById('chev-'+boxId);
-  if(body) body.classList.toggle('hidden',!box.open); if(chev) chev.classList.toggle('open',box.open);
+  box.open=!box.open; await saveTemplateNow(tpl);
+  const body=document.getElementById('body-'+boxId);const chev=document.getElementById('chev-'+boxId);
+  if(body)body.classList.toggle('hidden',!box.open);if(chev)chev.classList.toggle('open',box.open);
 }
 
-async function addBox() {
+async function addBox(){
   const tpl=getTemplate();
   const box={id:'box_'+Date.now(),name:'',pdfField:'',segments:[],open:true};
-  tpl.boxes.push(box); await saveTemplate(tpl);
-  const c=document.getElementById('boxes-list'); c.appendChild(buildBoxEl(box,tpl.boxes.length-1,tpl.pdfFields));
+  tpl.boxes.push(box); await saveTemplateNow(tpl);
+  const c=document.getElementById('boxes-list');c.appendChild(buildBoxEl(box,tpl.boxes.length-1,tpl.pdfFields));
 }
 
-async function deleteBox(boxId) {
-  if(!confirm('Remove this box?')) return;
-  const tpl=getTemplate(); tpl.boxes=tpl.boxes.filter(b=>b.id!==boxId); await saveTemplate(tpl);
-  const el=document.getElementById('box-'+boxId); if(el) el.remove();
+async function deleteBox(boxId){
+  if(!confirm('Remove this box?'))return;
+  const tpl=getTemplate();tpl.boxes=tpl.boxes.filter(b=>b.id!==boxId);
+  await saveTemplateNow(tpl);
+  const el=document.getElementById('box-'+boxId);if(el)el.remove();
   tpl.boxes.forEach((box,bi)=>{const n=document.querySelector(`#box-${box.id} .box-num`);if(n)n.textContent=bi+1;});
 }
-
 function rerenderBoxes(){renderBoxes();}
 
+// ── FILL SCREEN ─────────────────────────────────────────────────────────────
 let fillAnswers={};
-function openFillScreen() {
+function openFillScreen(){
   const tpl=getTemplate(); fillAnswers={}; showScreen('fill');
   document.getElementById('fill-title').textContent=tpl.name;
   const c=document.getElementById('fill-boxes'); c.innerHTML='';
@@ -568,14 +622,29 @@ function openFillScreen() {
     const div=document.createElement('div'); div.className='fill-box';
     let segsHTML='';
     box.segments.forEach(seg=>{
-      if(seg.type==='chain') segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">Chain — fixed</div><div class="fill-chain-text">${escHtml(seg.text||'(empty chain)')}</div></div>`;
-      else {
+      if(seg.type==='chain'){
+        segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">Chain — fixed</div><div class="fill-chain-text">${escHtml(seg.text||'(empty chain)')}</div></div>`;
+      } else {
         const inputId=`fill-${box.id}-${seg.id}`;
         let inputHTML='';
-        if(seg.inputType==='dropdown'){const opts=(seg.options||[]).map(o=>`<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');inputHTML=`<select class="fill-input" id="${inputId}" onchange="recordAnswer('${box.id}','${seg.id}',this.value)"><option value="">Select...</option>${opts}</select>`;}
-        else if(seg.inputType==='number') inputHTML=`<input type="number" class="fill-input" id="${inputId}" placeholder="Enter amount..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
-        else if(seg.inputType==='date') inputHTML=`<input type="date" class="fill-input" id="${inputId}" oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
-        else inputHTML=`<input type="text" class="fill-input" id="${inputId}" placeholder="Type here..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
+        if(seg.inputType==='dropdown'){
+          const opts=(seg.options||[]).map(o=>`<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');
+          inputHTML=`<select class="fill-input" id="${inputId}" onchange="recordAnswer('${box.id}','${seg.id}',this.value)"><option value="">Select...</option>${opts}</select>`;
+        } else if(seg.inputType==='number'){
+          inputHTML=`<input type="number" class="fill-input" id="${inputId}" placeholder="Enter amount..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
+        } else if(seg.inputType==='date'){
+          inputHTML=`<input type="date" class="fill-input" id="${inputId}" oninput="recordDateAnswer('${box.id}','${seg.id}',this.value,'${seg.dateFormat||'DD/MM/YYYY'}')"/>`;
+        } else if(seg.inputType==='checkbox'){
+          const opts=seg.checkboxOptions||[];
+          const checkItems=opts.map((opt,oi)=>`
+            <div class="checkbox-fill-item" id="cbfi-${seg.id}-${oi}" onclick="toggleCheckbox('${box.id}','${seg.id}',${oi})">
+              <input type="checkbox" id="cb-${seg.id}-${oi}" onclick="event.stopPropagation();toggleCheckbox('${box.id}','${seg.id}',${oi})"/>
+              <div><div class="checkbox-fill-label">${escHtml(opt.label||'Option '+(oi+1))}</div><div class="checkbox-fill-text">${escHtml(opt.text||'')}</div></div>
+            </div>`).join('');
+          inputHTML=`<div class="checkbox-fill-list">${checkItems}</div>`;
+        } else {
+          inputHTML=`<input type="text" class="fill-input" id="${inputId}" placeholder="Type here..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
+        }
         segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Sub-box')}</div>${inputHTML}</div>`;
       }
     });
@@ -586,36 +655,81 @@ function openFillScreen() {
 
 function closeFillScreen(){showScreen('app');}
 
-function recordAnswer(boxId,segId,value) {
-  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+function recordAnswer(boxId,segId,value){
+  if(!fillAnswers[boxId])fillAnswers[boxId]={};
   fillAnswers[boxId][segId]=value;
+  updateFillPreview(boxId);
+}
+
+function recordDateAnswer(boxId,segId,rawValue,format){
+  if(!rawValue){recordAnswer(boxId,segId,'');return;}
+  // rawValue is YYYY-MM-DD from the date input
+  const parts=rawValue.split('-'); // [YYYY, MM, DD]
+  let formatted='';
+  if(format==='DD/MM/YYYY') formatted=`${parts[2]}/${parts[1]}/${parts[0]}`;
+  else if(format==='MM/DD/YYYY') formatted=`${parts[1]}/${parts[2]}/${parts[0]}`;
+  else formatted=rawValue;
+  recordAnswer(boxId,segId,formatted);
+}
+
+function toggleCheckbox(boxId,segId,optIdx){
+  if(!fillAnswers[boxId])fillAnswers[boxId]={};
+  if(!fillAnswers[boxId][segId])fillAnswers[boxId][segId]=[];
+  const checked=fillAnswers[boxId][segId];
+  const pos=checked.indexOf(optIdx);
+  if(pos===-1) checked.push(optIdx); else checked.splice(pos,1);
+  // Update checkbox visual
+  const cbEl=document.getElementById(`cb-${segId}-${optIdx}`);
+  const itemEl=document.getElementById(`cbfi-${segId}-${optIdx}`);
+  if(cbEl) cbEl.checked=checked.includes(optIdx);
+  if(itemEl) itemEl.classList.toggle('checked',checked.includes(optIdx));
+  updateFillPreview(boxId);
+}
+
+function updateFillPreview(boxId){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
   const prev=document.getElementById('fp-'+boxId); if(prev&&box) prev.innerHTML=buildFilledSentence(box);
 }
 
-function buildFilledSentence(box) {
+function buildFilledSentence(box){
   if(!box.segments||!box.segments.length) return '<span style="color:var(--ink3);font-style:italic;">No segments defined</span>';
   return box.segments.map(seg=>{
     if(seg.type==='chain') return `<span class="cp">${escHtml(seg.text||'')}</span>`;
     const val=fillAnswers[box.id]&&fillAnswers[box.id][seg.id];
+    if(seg.inputType==='checkbox'){
+      const selectedIdxs=Array.isArray(val)?val:[];
+      const opts=seg.checkboxOptions||[];
+      const texts=selectedIdxs.map(i=>opts[i]?.text||opts[i]?.label||'').filter(Boolean);
+      if(texts.length) return `<span class="sp">${escHtml(texts.join(seg.joinWith||', '))}</span>`;
+      return `<span style="color:var(--ink3);font-style:italic;">[${escHtml(seg.label||'Sub-box')}]</span>`;
+    }
     return val?`<span class="sp">${escHtml(val)}</span>`:`<span style="color:var(--ink3);font-style:italic;">[${escHtml(seg.label||'Sub-box')}]</span>`;
   }).join(' ');
 }
 
-async function generatePDF() {
+async function generatePDF(){
   const tpl=getTemplate();
-  try {
-    const {PDFDocument}=PDFLib; const pdfDoc=await PDFDocument.load(base64ToArrayBuffer(tpl.pdfB64),{ignoreEncryption:true}); const form=pdfDoc.getForm();
+  try{
+    const{PDFDocument}=PDFLib;const pdfDoc=await PDFDocument.load(base64ToArrayBuffer(tpl.pdfB64),{ignoreEncryption:true});const form=pdfDoc.getForm();
     tpl.boxes.forEach(box=>{
-      if(!box.pdfField) return;
-      const assembled=box.segments.map(seg=>seg.type==='chain'?seg.text||'':(fillAnswers[box.id]&&fillAnswers[box.id][seg.id])||'').join(' ').trim();
+      if(!box.pdfField)return;
+      const assembled=box.segments.map(seg=>{
+        if(seg.type==='chain') return seg.text||'';
+        const val=fillAnswers[box.id]&&fillAnswers[box.id][seg.id];
+        if(seg.inputType==='checkbox'){
+          const selectedIdxs=Array.isArray(val)?val:[];
+          const opts=seg.checkboxOptions||[];
+          return selectedIdxs.map(i=>opts[i]?.text||opts[i]?.label||'').filter(Boolean).join(seg.joinWith||', ');
+        }
+        return val||'';
+      }).join(' ').trim();
       try{form.getTextField(box.pdfField).setText(assembled);}catch{try{form.getDropdown(box.pdfField).select(assembled);}catch{}}
     });
-    form.flatten(); const pdfBytes=await pdfDoc.save();
-    const blob=new Blob([pdfBytes],{type:'application/pdf'}); const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download=tpl.name+' — filled.pdf'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),5000); showToast('PDF downloaded!');
-  } catch(err){showToast('Error: '+err.message);}
+    form.flatten();const pdfBytes=await pdfDoc.save();
+    const blob=new Blob([pdfBytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=tpl.name+' — filled.pdf';a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);showToast('PDF downloaded!');
+  }catch(err){showToast('Error: '+err.message);}
 }
 
 function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
