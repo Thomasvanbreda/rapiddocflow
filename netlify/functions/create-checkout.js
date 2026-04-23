@@ -1,13 +1,12 @@
 const crypto = require('crypto');
 
-const PAYFAST_MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID || '34676581';
+const PAYFAST_MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID;
 const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
 function generateSignature(data, passphrase) {
   let str = Object.keys(data)
-    .filter(k => k !== 'signature' && data[k] !== '')
-    .sort()
+    .filter(k => k !== 'signature' && data[k] !== '' && data[k] !== null && data[k] !== undefined)
     .map(k => `${k}=${encodeURIComponent(String(data[k])).replace(/%20/g, '+')}`)
     .join('&');
   if (passphrase) str += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`;
