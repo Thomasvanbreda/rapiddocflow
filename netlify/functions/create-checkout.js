@@ -11,7 +11,6 @@ function generateSignature(data, passphrase) {
       output += key + '=' + encodeURIComponent(data[key]).replace(/%20/g, '+') + '&';
     }
   }
-  // Remove trailing &
   let str = output.slice(0, -1);
   if (passphrase) {
     str += '&passphrase=' + encodeURIComponent(passphrase).replace(/%20/g, '+');
@@ -40,11 +39,11 @@ exports.handler = async (event) => {
       email_address: email,
       amount: '49.99',
       item_name: 'SmartAnswerPDF Pro - Monthly Subscription',
+      custom_str1: userId,
       subscription_type: '1',
       recurring_amount: '49.99',
       frequency: '3',
       cycles: '0',
-      custom_str1: userId,
     };
     data.signature = generateSignature(data, PAYFAST_PASSPHRASE);
     return {
