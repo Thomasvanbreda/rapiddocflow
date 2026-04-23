@@ -9,11 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
-    --ink: #1e1024; --ink2: #4a2d5a; --ink3: #9a7aaa;
-    --rule: #e8d6f0; --surface: #fdf7ff; --white: #fffaff;
-    --accent: #6b2d8b; --accent2: #8b4aab; --accent-light: #f7eeff;
-    --danger: #b94060; --chain-bg: #fdf0f5; --chain-border: #e8b4cc;
-    --sub-bg: #f7eeff; --sub-border: #c9a0e0; --radius: 8px;
+    --ink: #0a1628; --ink2: #1a3a5c; --ink3: #5a8aaa;
+    --rule: #b8d8ea; --surface: #f0f7fc; --white: #ffffff;
+    --accent: #0d2d6e; --accent2: #1a5fa8; --accent-light: #e0f0fa;
+    --danger: #c0392b; --chain-bg: #e8f4fc; --chain-border: #7ab8d8;
+    --sub-bg: #e0f0fa; --sub-border: #4aa8d8; --radius: 8px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Outfit', sans-serif; background: var(--surface); color: var(--ink); min-height: 100vh; }
@@ -86,8 +86,8 @@
   .segment { display: flex; align-items: flex-start; gap: 10px; }
   .seg-content { flex: 1; }
   .seg-type-badge { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 20px; margin-bottom: 5px; }
-  .badge-chain { background: var(--chain-bg); color: #8b2d55; border: 1px solid var(--chain-border); }
-  .badge-sub { background: var(--sub-bg); color: var(--accent); border: 1px solid var(--sub-border); }
+  .badge-chain { background: var(--chain-bg); color: #0d4a6e; border: 1px solid var(--chain-border); }
+  .badge-sub { background: var(--sub-bg); color: var(--accent2); border: 1px solid var(--sub-border); }
   .chain-input { width: 100%; padding: 8px 10px; border: 1px solid var(--chain-border); border-radius: var(--radius); font-family: inherit; font-size: 13px; background: var(--chain-bg); color: var(--ink); outline: none; }
   .chain-input:focus { border-color: #c47ab0; }
   .sub-config { display: flex; flex-direction: column; gap: 6px; }
@@ -110,10 +110,10 @@
   .seg-del:hover { opacity: 1; color: var(--danger); }
   .add-seg-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn-add-seg { padding: 7px 14px; border-radius: var(--radius); font-family: inherit; font-size: 12px; cursor: pointer; border: 1px solid; transition: all 0.15s; }
-  .btn-chain { background: var(--chain-bg); color: #8b2d55; border-color: var(--chain-border); }
-  .btn-chain:hover { background: #fce4ef; }
-  .btn-sub { background: var(--sub-bg); color: var(--accent); border-color: var(--sub-border); }
-  .btn-sub:hover { background: #eedeff; }
+  .btn-chain { background: var(--chain-bg); color: #0d4a6e; border-color: var(--chain-border); }
+  .btn-chain:hover { background: #c8e8f8; }
+  .btn-sub { background: var(--sub-bg); color: var(--accent2); border-color: var(--sub-border); }
+  .btn-sub:hover { background: #c0e4f4; }
   .add-box-btn { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1.5px dashed var(--rule); border-radius: 12px; cursor: pointer; color: var(--ink3); font-size: 13px; font-family: inherit; background: transparent; transition: all 0.2s; width: 100%; justify-content: center; }
   .add-box-btn:hover { border-color: var(--accent2); color: var(--accent); background: var(--accent-light); }
   #fill-screen { display: none; padding: 2rem; max-width: 700px; margin: 0 auto; }
@@ -219,7 +219,7 @@
             <div class="editor-title" id="editor-title"></div>
             <div class="editor-subtitle" id="editor-subtitle"></div>
             <div id="pdf-name-bar" style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">
-              <span style="font-size:12px;color:var(--ink3);">📎 PDF:</span>
+              <span style="font-size:12px;color:var(--ink3);">PDF:</span>
               <span id="pdf-name-label" style="font-size:12px;color:var(--ink2);font-weight:500;"></span>
               <button onclick="document.getElementById('replace-pdf-input').click()" style="font-size:11px;padding:4px 10px;border:1px solid var(--rule);border-radius:20px;background:transparent;color:var(--ink3);cursor:pointer;font-family:inherit;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--rule)';this.style.color='var(--ink3)'">Replace PDF</button>
               <input type="file" id="replace-pdf-input" accept=".pdf" style="display:none" onchange="handleReplacePdf(event)"/>
