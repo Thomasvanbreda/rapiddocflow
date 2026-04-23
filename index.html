@@ -177,12 +177,29 @@
       <div class="field-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••"/></div>
       <button class="btn-primary" id="login-btn" onclick="doLogin()">Sign in</button>
+      <div style="text-align:center;margin-top:12px;">
+        <span onclick="switchTab('forgot')" style="font-size:12px;color:var(--accent2);cursor:pointer;text-decoration:underline;">Forgot password?</span>
+      </div>
     </div>
     <div id="signup-form" style="display:none">
       <div class="field-group"><label>Full name</label><input type="text" id="signup-name" placeholder="Jane Smith"/></div>
       <div class="field-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="signup-pw" placeholder="Min. 6 characters"/></div>
       <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create account</button>
+    </div>
+    <div id="forgot-form" style="display:none">
+      <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">Enter your email and we'll send you a link to reset your password.</p>
+      <div class="field-group"><label>Email</label><input type="email" id="forgot-email" placeholder="you@example.com"/></div>
+      <button class="btn-primary" id="forgot-btn" onclick="doForgotPassword()">Send reset link</button>
+      <div style="text-align:center;margin-top:12px;">
+        <span onclick="switchTab('login')" style="font-size:12px;color:var(--accent2);cursor:pointer;text-decoration:underline;">← Back to sign in</span>
+      </div>
+    </div>
+    <div id="reset-form" style="display:none">
+      <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">Enter your new password below.</p>
+      <div class="field-group"><label>New password</label><input type="password" id="reset-pw" placeholder="Min. 6 characters"/></div>
+      <div class="field-group"><label>Confirm password</label><input type="password" id="reset-pw2" placeholder="Repeat password"/></div>
+      <button class="btn-primary" id="reset-btn" onclick="doResetPassword()">Set new password</button>
     </div>
     <div class="auth-msg" id="auth-msg"></div>
   </div>
@@ -305,6 +322,13 @@ function debounce(key, fn, delay=600) {
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 async function init() {
+  // Check if this is a password reset redirect
+  const hash=window.location.hash;
+  if(hash.includes('type=recovery')){
+    showScreen('auth');
+    switchTab('reset');
+    return;
+  }
   const { data: { session } } = await sb.auth.getSession();
   if (session) { currentUser=session.user; await enterApp(session.user); }
   else showScreen('auth');
@@ -324,11 +348,36 @@ function showScreen(name) {
 function switchTab(tab) {
   document.getElementById('login-form').style.display=tab==='login'?'':'none';
   document.getElementById('signup-form').style.display=tab==='signup'?'':'none';
+  document.getElementById('forgot-form').style.display=tab==='forgot'?'':'none';
+  document.getElementById('reset-form').style.display=tab==='reset'?'':'none';
   document.getElementById('tab-login').className='auth-tab'+(tab==='login'?' active':'');
   document.getElementById('tab-signup').className='auth-tab'+(tab==='signup'?' active':'');
   document.getElementById('auth-msg').textContent='';
 }
-function setMsg(msg,ok){const el=document.getElementById('auth-msg');el.textContent=msg;el.style.color=ok?'var(--accent)':'var(--danger)';}
+function setMsg(msg,ok){const el=document.getElementById('auth-msg');el.textContent=msg;el.style.color=ok?'var(--accent2)':'var(--danger)';}
+
+async function doForgotPassword(){
+  const email=document.getElementById('forgot-email').value.trim().toLowerCase();
+  if(!email) return setMsg('Please enter your email address.');
+  const btn=document.getElementById('forgot-btn'); btn.disabled=true; btn.textContent='Sending...';
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:'https://smartanswerpdf.netlify.app'});
+  btn.disabled=false; btn.textContent='Send reset link';
+  if(error) return setMsg(error.message);
+  setMsg('Reset link sent! Check your email inbox.',true);
+}
+
+async function doResetPassword(){
+  const pw=document.getElementById('reset-pw').value;
+  const pw2=document.getElementById('reset-pw2').value;
+  if(!pw||!pw2) return setMsg('Please fill in both fields.');
+  if(pw.length<6) return setMsg('Password must be at least 6 characters.');
+  if(pw!==pw2) return setMsg('Passwords do not match.');
+  const btn=document.getElementById('reset-btn'); btn.disabled=true; btn.textContent='Saving...';
+  const {error}=await sb.auth.updateUser({password:pw});
+  btn.disabled=false; btn.textContent='Set new password';
+  if(error) return setMsg(error.message);
+  setMsg('Password updated! Signing you in...',true);
+}
 
 async function doSignup() {
   const name=document.getElementById('signup-name').value.trim();
