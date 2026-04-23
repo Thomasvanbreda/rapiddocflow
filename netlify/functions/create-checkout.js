@@ -10,7 +10,7 @@ function generateSignature(data, passphrase) {
     .map(k => `${k}=${encodeURIComponent(String(data[k] ?? '')).replace(/%20/g, '+')}`)
     .join('&');
   if (passphrase) str += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`;
-  return crypto.createHash('md5').update(str).digest('hex');
+  return { sig: crypto.createHash('md5').update(str).digest('hex'), str };
 }
 
 exports.handler = async (event) => {
@@ -41,11 +41,12 @@ exports.handler = async (event) => {
       cycles: '0',
       custom_str1: userId,
     };
-    data.signature = generateSignature(data, PAYFAST_PASSPHRASE);
+    const { sig, str } = generateSignature(data, PAYFAST_PASSPHRASE);
+    data.signature = sig;
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: data })
+      body: JSON.stringify({ fields: data, debug_str: str, debug_sig: sig })
     };
   } catch (err) {
     console.error('Checkout error:', err);
