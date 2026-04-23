@@ -5,11 +5,17 @@ const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
 function generateSignature(data, passphrase) {
-  let str = Object.keys(data)
-    .filter(k => k !== 'signature' && data[k] !== '' && data[k] !== null && data[k] !== undefined)
-    .map(k => `${k}=${encodeURIComponent(String(data[k])).replace(/%20/g, '+')}`)
-    .join('&');
-  if (passphrase) str += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`;
+  let output = '';
+  for (let key in data) {
+    if (key !== 'signature' && data[key] !== '') {
+      output += key + '=' + encodeURIComponent(data[key]).replace(/%20/g, '+') + '&';
+    }
+  }
+  // Remove trailing &
+  let str = output.slice(0, -1);
+  if (passphrase) {
+    str += '&passphrase=' + encodeURIComponent(passphrase).replace(/%20/g, '+');
+  }
   return crypto.createHash('md5').update(str).digest('hex');
 }
 
