@@ -22,6 +22,7 @@ function generateSignature(data, passphrase) {
 async function supabaseUpdate(userId, status, token) {
   const body = JSON.stringify({
     subscription_status: status,
+    subscription_source: status === 'active' ? 'payfast' : 'manual',
     subscription_date: new Date().toISOString(),
     payfast_token: token || null
   });

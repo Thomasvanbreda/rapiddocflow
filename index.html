@@ -1012,15 +1012,29 @@ function toggleAdminPanel(){
 async function loadAdminUsers(){
   const list = document.getElementById('admin-users-list');
   list.innerHTML = '<div style="font-size:13px;color:var(--ink3);">Loading...</div>';
-  const {data, error} = await sb.from('profiles').select('email, subscription_status, created_at').order('created_at', {ascending: false});
+  const {data, error} = await sb.from('profiles').select('email, subscription_status, subscription_source, created_at').order('created_at', {ascending: false});
   if(error || !data){ list.innerHTML = '<div style="font-size:13px;color:var(--danger);">Error loading users</div>'; return; }
   if(!data.length){ list.innerHTML = '<div style="font-size:13px;color:var(--ink3);">No users yet</div>'; return; }
-  list.innerHTML = data.map(u=>`
-    <div class="admin-user-row">
+  list.innerHTML = data.map(u=>{
+    const isPaying = u.subscription_status==='active' && u.subscription_source==='payfast';
+    const isManualPro = u.subscription_status==='active' && u.subscription_source!=='payfast';
+    const isFree = u.subscription_status!=='active';
+    let actionBtn = '';
+    if(isPaying){
+      actionBtn = `<span style="font-size:11px;color:var(--ink3);padding:5px 10px;border:1px solid var(--rule);border-radius:var(--radius);">Paying ✓</span>`;
+    } else if(isManualPro){
+      actionBtn = `<button class="btn-admin-action btn-deactivate" style="padding:5px 10px;font-size:11px;" onclick="adminSetStatusByEmail('${escHtml(u.email)}','free')">Deactivate</button>`;
+    } else {
+      actionBtn = `<button class="btn-admin-action btn-activate" style="padding:5px 10px;font-size:11px;" onclick="adminSetStatusByEmail('${escHtml(u.email)}','active')">Activate</button>`;
+    }
+    const statusLabel = isPaying ? 'Paying' : isManualPro ? 'Pro' : 'Free';
+    const statusClass = (isPaying||isManualPro) ? 'status-active' : 'status-free';
+    return `<div class="admin-user-row">
       <div class="admin-user-email">${escHtml(u.email||'—')}</div>
-      <span class="admin-user-status ${u.subscription_status==='active'?'status-active':'status-free'}">${u.subscription_status==='active'?'Pro':'Free'}</span>
-      <button class="btn-admin-action ${u.subscription_status==='active'?'btn-deactivate':'btn-activate'}" style="padding:5px 10px;font-size:11px;" onclick="adminSetStatusByEmail('${escHtml(u.email)}','${u.subscription_status==='active'?'free':'active'}')">${u.subscription_status==='active'?'Deactivate':'Activate'}</button>
-    </div>`).join('');
+      <span class="admin-user-status ${statusClass}">${statusLabel}</span>
+      ${actionBtn}
+    </div>`;
+  }).join('');
 }
 
 async function adminSetStatus(status){
@@ -1034,15 +1048,15 @@ async function adminSetStatusByEmail(email, status){
   const result = document.getElementById('admin-result');
   const {error} = await sb.from('profiles').update({
     subscription_status: status,
+    subscription_source: 'manual',
     subscription_date: new Date().toISOString()
   }).eq('email', email);
   if(error){
     result.textContent = 'Error: ' + error.message;
     result.className = 'admin-result error';
   } else {
-    result.textContent = `${email} → ${status==='active'?'Pro activated':'Deactivated to Free'}`;
+    result.textContent = `${email} → ${status==='active'?'Pro activated (manual)':'Deactivated to Free'}`;
     result.className = 'admin-result success';
-    // Small delay then reload to show updated state
     setTimeout(()=>loadAdminUsers(), 500);
   }
 }
