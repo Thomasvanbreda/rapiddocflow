@@ -156,7 +156,9 @@
   .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--ink); color: white; padding: 10px 18px; border-radius: var(--radius); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
   .toast.show { opacity: 1; }
   .mapping-select { padding: 7px 10px; border: 1px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; }
-  /* ADMIN PANEL */
+  .template-item.locked { opacity: 0.5; }
+  .template-item.locked .ticon { background: var(--ink3) !important; }
+  .locked-badge { font-size: 10px; color: var(--ink3); margin-left: auto; flex-shrink: 0; }
   #admin-screen { display: none; padding: 2rem; max-width: 700px; margin: 0 auto; }
   .admin-title { font-family: 'Nunito', sans-serif; font-size: 24px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
   .admin-subtitle { font-size: 13px; color: var(--ink3); margin-bottom: 2rem; }
@@ -490,7 +492,7 @@ async function enterApp(user) {
 async function loadTemplates() {
   const {data}=await sb.from('templates').select('*').eq('user_id',currentUser.id).order('created_at');
   templates={};
-  (data||[]).forEach(r=>{templates[r.id]={id:r.id,name:r.name,pdfFields:r.pdf_fields||[],pdfB64:r.pdf_b64||'',pdfName:r.pdf_name||'',boxes:r.boxes||[]};});
+  (data||[]).forEach(r=>{templates[r.id]={id:r.id,name:r.name,pdfFields:r.pdf_fields||[],pdfB64:r.pdf_b64||'',pdfName:r.pdf_name||'',boxes:r.boxes||[],createdAt:r.created_at||''};});
 }
 
 async function cloudSave(tpl) {
@@ -585,17 +587,34 @@ function renderSidebar(){
   const list=document.getElementById('template-list');
   const tpls=Object.values(templates); list.innerHTML='';
   if(!tpls.length){list.innerHTML='<div style="font-size:12px;color:var(--ink3);padding:6px 10px;">No templates yet</div>';return;}
-  tpls.forEach(tpl=>{
+  // Sort by created_at so first template is always index 0
+  tpls.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+  tpls.forEach((tpl,idx)=>{
+    const isLocked = userSubscription!=='active' && idx>0;
     const el=document.createElement('div');
-    el.className='template-item'+(activeTemplateId===tpl.id?' active':'');
-    el.innerHTML=`<div class="ticon" style="background:var(--accent);color:white;font-weight:700;font-size:13px;">${escHtml(tpl.name.charAt(0).toUpperCase())}</div><div class="template-name">${escHtml(tpl.name)}</div>
-      <div class="tpl-actions" onclick="event.stopPropagation()">
-        <button class="tpl-action-btn" title="Rename" onclick="openRenameModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg></button>
-        <button class="tpl-action-btn" title="Duplicate" onclick="openDupeModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1"/><path d="M2 8V2a1 1 0 011-1h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg></button>
-        <button class="tpl-action-btn danger" title="Delete" onclick="deleteTemplate('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M4 5v4M8 5v4M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      </div>`;
-    el.onclick=()=>selectTemplate(tpl.id); list.appendChild(el);
+    el.className='template-item'+(activeTemplateId===tpl.id?' active':'')+(isLocked?' locked':'');
+    if(isLocked){
+      el.innerHTML=`
+        <div class="ticon" style="background:var(--ink3);color:white;font-weight:700;font-size:13px;">${escHtml(tpl.name.charAt(0).toUpperCase())}</div>
+        <div class="template-name" style="color:var(--ink3);">${escHtml(tpl.name)}</div>
+        <span class="locked-badge">🔒</span>`;
+      el.onclick=()=>showLockedTemplate();
+    } else {
+      el.innerHTML=`<div class="ticon" style="background:var(--accent);color:white;font-weight:700;font-size:13px;">${escHtml(tpl.name.charAt(0).toUpperCase())}</div><div class="template-name">${escHtml(tpl.name)}</div>
+        <div class="tpl-actions" onclick="event.stopPropagation()">
+          <button class="tpl-action-btn" title="Rename" onclick="openRenameModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg></button>
+          <button class="tpl-action-btn" title="Duplicate" onclick="openDupeModal('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1"/><path d="M2 8V2a1 1 0 011-1h6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg></button>
+          <button class="tpl-action-btn danger" title="Delete" onclick="deleteTemplate('${tpl.id}')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M5 3V2h2v1M4 5v4M8 5v4M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>`;
+      el.onclick=()=>selectTemplate(tpl.id);
+    }
+    list.appendChild(el);
   });
+}
+
+function showLockedTemplate(){
+  showPaywall();
+  showToast('Upgrade to Pro to access this template.');
 }
 async function deleteTemplate(id){
   if(!confirm('Delete this template?'))return;
