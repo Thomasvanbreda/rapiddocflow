@@ -1071,6 +1071,15 @@ async function adminSetStatus(status){
 
 async function adminSetStatusByEmail(email, status){
   const result = document.getElementById('admin-result');
+  // Safety check: never allow manual deactivation of a paying PayFast customer
+  if(status === 'free'){
+    const {data:profile} = await sb.from('profiles').select('subscription_source').eq('email', email).single();
+    if(profile && profile.subscription_source === 'payfast'){
+      result.textContent = email + ' is a paying PayFast customer and cannot be manually deactivated.';
+      result.className = 'admin-result error';
+      return;
+    }
+  }
   const {error} = await sb.from('profiles').update({
     subscription_status: status,
     subscription_source: 'manual',
