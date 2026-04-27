@@ -219,7 +219,10 @@
   <div class="contact-card">
     <h3>Questions about your privacy?</h3>
     <p>We believe in full transparency. If you have any questions, concerns, or requests relating to your data or this policy, email us directly:</p>
-    <a href="mailto:support@smartanswerpdf.com">support@smartanswerpdf.com</a>
+    <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:12px 20px;display:inline-flex;align-items:center;gap:12px;margin-top:4px;">
+      <span style="font-size:14px;font-weight:600;">support@smartanswerpdf.com</span>
+      <button onclick="navigator.clipboard.writeText('support@smartanswerpdf.com');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)" style="background:white;color:#4F46E5;border:none;border-radius:50px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">Copy</button>
+    </div>
   </div>
 
 </div>
