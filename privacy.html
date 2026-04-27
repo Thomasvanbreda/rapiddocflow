@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Privacy Policy — SmartAnswerPDF</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ink: #111827; --ink2: #374151; --ink3: #6B7280;
+    --rule: #E5E7EB; --surface: #F9FAFB; --white: #FFFFFF;
+    --accent: #4F46E5; --accent2: #06B6D4; --accent-light: #EEF2FF;
+    --radius: 12px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Outfit', sans-serif; background: var(--surface); color: var(--ink); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .topnav { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule); padding: 0 2rem; display: flex; align-items: center; height: 58px; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-sm); }
+  .nav-logo { font-family: 'Nunito', sans-serif; font-size: 22px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.3px; text-decoration: none; }
+  .nav-back { margin-left: auto; font-size: 13px; color: var(--ink3); text-decoration: none; border: 1.5px solid var(--rule); border-radius: 50px; padding: 5px 14px; transition: all 0.2s; font-weight: 500; }
+  .nav-back:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .hero { background: linear-gradient(135deg, #EEF2FF 0%, #ECFEFF 100%); border-bottom: 1px solid var(--rule); padding: 4rem 2rem 3rem; text-align: center; }
+  .hero-badge { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 14px; border-radius: 50px; border: 1.5px solid #C7D2FE; margin-bottom: 1.5rem; }
+  .hero-title { font-family: 'Nunito', sans-serif; font-size: 40px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 1rem; letter-spacing: -0.5px; }
+  .hero-sub { font-size: 15px; color: var(--ink3); max-width: 540px; margin: 0 auto; line-height: 1.7; }
+  .hero-date { font-size: 12px; color: var(--ink3); margin-top: 1rem; }
+  .content { max-width: 760px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+  .section-card { background: var(--white); border: 1.5px solid var(--rule); border-radius: 18px; padding: 2rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s; }
+  .section-card:hover { box-shadow: var(--shadow-md); }
+  .section-num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #6366F1); color: white; font-size: 12px; font-weight: 700; margin-bottom: 1rem; box-shadow: 0 2px 6px rgba(79,70,229,0.3); }
+  .section-title { font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 800; color: var(--ink); margin-bottom: 1rem; }
+  .section-body { font-size: 14px; color: var(--ink2); line-height: 1.8; }
+  .section-body p { margin-bottom: 0.875rem; }
+  .section-body p:last-child { margin-bottom: 0; }
+  .section-body ul { padding-left: 1.25rem; margin-bottom: 0.875rem; }
+  .section-body ul li { margin-bottom: 0.5rem; line-height: 1.7; }
+  .section-body strong { color: var(--ink); font-weight: 600; }
+  .highlight-box { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1rem 0; font-size: 13px; line-height: 1.7; }
+  .highlight-green { background: #ECFDF5; border: 1.5px solid #A7F3D0; color: #065F46; }
+  .highlight-blue { background: var(--accent-light); border: 1.5px solid #C7D2FE; color: #3730A3; }
+  .highlight-amber { background: #FFFBEB; border: 1.5px solid #FDE68A; color: #92400E; }
+  .security-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 1rem; }
+  .security-item { background: var(--surface); border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 1rem; }
+  .security-item-icon { font-size: 20px; margin-bottom: 6px; }
+  .security-item-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+  .security-item-desc { font-size: 12px; color: var(--ink3); line-height: 1.5; }
+  .contact-card { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); border-radius: 18px; padding: 2rem; text-align: center; color: white; margin-top: 2rem; box-shadow: 0 4px 20px rgba(79,70,229,0.3); }
+  .contact-card h3 { font-family: 'Nunito', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  .contact-card p { font-size: 14px; opacity: 0.9; margin-bottom: 1.25rem; line-height: 1.6; }
+  .contact-card a { display: inline-block; background: white; color: var(--accent); font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; padding: 10px 24px; border-radius: 50px; text-decoration: none; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .contact-card a:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .footer { text-align: center; font-size: 12px; color: var(--ink3); padding: 2rem; border-top: 1px solid var(--rule); }
+  @media (max-width: 600px) {
+    .hero-title { font-size: 28px; }
+    .security-grid { grid-template-columns: 1fr; }
+    .content { padding: 2rem 1rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a class="nav-logo" href="https://smartanswerpdf.com">SmartAnswerPDF</a>
+  <a class="nav-back" href="https://smartanswerpdf.com">← Back to app</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-badge">Legal Document</div>
+  <h1 class="hero-title">Privacy Policy</h1>
+  <p class="hero-sub">We handle your documents and data with care. This policy explains exactly what we collect, how we store it, and how we protect it — in plain language.</p>
+  <p class="hero-date">Last updated: April 2026</p>
+</div>
+
+<div class="content">
+
+  <div class="section-card">
+    <div class="section-num">1</div>
+    <div class="section-title">Who We Are</div>
+    <div class="section-body">
+      <p>SmartAnswerPDF is a cloud-based PDF automation platform available to anyone, anywhere in the world. We help individuals, teams, and businesses of all kinds streamline repetitive document workflows — whether you're in healthcare, law, education, real estate, HR, or any other field that involves filling in forms and generating documents.</p>
+      <p>We are not limited to any industry or geography. If you have a PDF and want to automate how you fill it in, SmartAnswerPDF is built for you.</p>
+      <p>By using SmartAnswerPDF, you agree to the terms of this Privacy Policy. If you have any questions, contact us at: <strong>support@smartanswerpdf.com</strong></p>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">2</div>
+    <div class="section-title">What Data We Collect</div>
+    <div class="section-body">
+      <p>We collect only the minimum data needed to operate the platform:</p>
+      <ul>
+        <li><strong>Account information:</strong> Your name and email address when you create an account.</li>
+        <li><strong>PDF templates:</strong> The blank PDF files you upload are stored so you can reuse them. These are stored as encrypted data in our database.</li>
+        <li><strong>Template configurations:</strong> The box structures, fixed text chains, and variable input fields you build within each template.</li>
+        <li><strong>Subscription status:</strong> Whether your account is on the Free or Pro plan, and a payment reference token from our payment processor.</li>
+        <li><strong>Authentication logs:</strong> Basic sign-in activity managed by our infrastructure provider, Supabase.</li>
+      </ul>
+      <div class="highlight-amber">
+        <strong>Important:</strong> We do not store completed, filled-out documents. When you generate a PDF, it is created entirely within your browser and downloaded directly to your device. No completed document ever leaves your computer or touches our servers.
+      </div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">3</div>
+    <div class="section-title">How We Protect Your Data</div>
+    <div class="section-body">
+      <p>Your data is stored using <strong>Supabase</strong>, a trusted cloud infrastructure provider. The following protections are actively in place:</p>
+      <div class="security-grid">
+        <div class="security-item">
+          <div class="security-item-icon">🔐</div>
+          <div class="security-item-title">AES-256 Encryption at Rest</div>
+          <div class="security-item-desc">All data in our database — including your PDF templates — is encrypted at rest using AES-256, the same standard used by banks worldwide.</div>
+        </div>
+        <div class="security-item">
+          <div class="security-item-icon">🔒</div>
+          <div class="security-item-title">TLS Encryption in Transit</div>
+          <div class="security-item-desc">All data between your browser and our servers uses TLS 1.2/1.3. Nothing is ever transmitted in plain text.</div>
+        </div>
+        <div class="security-item">
+          <div class="security-item-icon">🛡️</div>
+          <div class="security-item-title">Row Level Security</div>
+          <div class="security-item-desc">Our database enforces strict isolation policies. Each user can only ever access their own data — never another user's templates or information.</div>
+        </div>
+        <div class="security-item">
+          <div class="security-item-icon">🏠</div>
+          <div class="security-item-title">Complete Data Isolation</div>
+          <div class="security-item-desc">Your templates are fully isolated. Even with knowledge of our public API key, no one can access another user's data.</div>
+        </div>
+      </div>
+      <div class="highlight-green" style="margin-top:1rem;">
+        <strong>Honest disclosure:</strong> We implement industry-standard security practices. However, no system is 100% immune to all threats. We rely on Supabase's infrastructure for our core security. In the event of any security incident affecting your data, we will notify you promptly.
+      </div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">4</div>
+    <div class="section-title">Your Documents and the Data Inside Them</div>
+    <div class="section-body">
+      <p>This is the most important section to understand:</p>
+      <ul>
+        <li><strong>Blank PDF templates you upload</strong> are stored encrypted in our database, accessible only to your account.</li>
+        <li><strong>Completed, filled-out documents</strong> are generated entirely within your browser. They are never sent to, stored on, or processed by our servers. They download directly to your device the moment they are generated.</li>
+        <li><strong>Any sensitive information you type into document fields</strong> — names, addresses, financial figures, medical details, or anything else — exists only in your browser session. We do not receive, process, or store this information in any way.</li>
+      </ul>
+      <div class="highlight-blue">
+        <strong>What this means in practice:</strong> The sensitive content of your documents stays entirely on your device. We only store your blank template structure — never the filled-in output.
+      </div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">5</div>
+    <div class="section-title">Payments</div>
+    <div class="section-body">
+      <p>Subscription payments are processed by <strong>PayFast</strong>, a PCI DSS Level 1 compliant payment processor. We never see, receive, or store your credit card or banking details at any point.</p>
+      <p>PayFast notifies us when a payment is successful. We store only a payment reference token — never any card information. For PayFast's privacy practices, refer to their policy at payfast.co.za.</p>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">6</div>
+    <div class="section-title">Data Sharing and Third Parties</div>
+    <div class="section-body">
+      <p>We do not sell, rent, trade, or share your personal data with any third parties for marketing or any other commercial purpose. Ever.</p>
+      <p>We use the following infrastructure providers solely to operate the platform:</p>
+      <ul>
+        <li><strong>Supabase</strong> — database, authentication, and encrypted data storage.</li>
+        <li><strong>Netlify</strong> — website hosting and serverless backend functions.</li>
+        <li><strong>PayFast</strong> — payment processing for Pro subscriptions.</li>
+      </ul>
+      <p>Each provider acts as a data processor only, bound by their own security and privacy commitments. We share the minimum data necessary for each to perform their specific function.</p>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">7</div>
+    <div class="section-title">Your Rights</div>
+    <div class="section-body">
+      <p>Regardless of where you are in the world, you have the following rights over your data:</p>
+      <ul>
+        <li><strong>Access:</strong> View all your templates and account information within the platform at any time.</li>
+        <li><strong>Deletion:</strong> Delete any template directly from the platform. To request full account and data deletion, contact us and we will action it within 30 days.</li>
+        <li><strong>Correction:</strong> Request correction of any inaccurate account information by contacting us.</li>
+        <li><strong>Portability:</strong> Download your generated PDFs directly from your browser at any time.</li>
+        <li><strong>Objection:</strong> Contact us at any time if you have concerns about how your data is being handled.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">8</div>
+    <div class="section-title">Data Retention</div>
+    <div class="section-body">
+      <p>We retain your account data and templates for as long as your account remains active. If you request account deletion, all your personal data and templates will be permanently removed within 30 days.</p>
+      <p>Basic subscription payment records may be retained for accounting and legal compliance purposes for up to 7 years, as is standard practice.</p>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">9</div>
+    <div class="section-title">Cookies</div>
+    <div class="section-body">
+      <p>SmartAnswerPDF uses only essential cookies and browser storage required to keep you logged in and maintain your session. We do not use tracking cookies, advertising cookies, or any third-party analytics cookies.</p>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-num">10</div>
+    <div class="section-title">Changes to This Policy</div>
+    <div class="section-body">
+      <p>We may update this Privacy Policy from time to time. When we do, we will update the "Last updated" date at the top of this page. For significant changes, we will notify registered users by email.</p>
+      <p>Continued use of SmartAnswerPDF after changes are posted constitutes your acceptance of the revised policy.</p>
+    </div>
+  </div>
+
+  <div class="contact-card">
+    <h3>Questions about your privacy?</h3>
+    <p>We believe in full transparency. If you have any questions, concerns, or requests relating to your data or this policy, reach out — we'll respond within 2 business days.</p>
+    <a href="mailto:support@smartanswerpdf.com">Get in Touch</a>
+  </div>
+
+</div>
+
+<div class="footer">
+  © 2026 SmartAnswerPDF. All rights reserved. &nbsp;·&nbsp; <a href="https://smartanswerpdf.com" style="color:var(--ink3);">Back to app</a>
+</div>
+
+</body>
+</html>
