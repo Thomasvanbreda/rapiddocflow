@@ -6,6 +6,9 @@
 <title>SmartAnswerPDF — PDF Form Builder</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="apple-touch-icon" href="/favicon-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -644,7 +647,7 @@ async function startCheckout(){
     // Build and submit PayFast form
     const form=document.createElement('form');
     form.method='POST';
-    form.action='https://www.payfast.co.za/eng/process';
+    form.action='https://sandbox.payfast.co.za/eng/process';
     form.style.display='none';
     Object.entries(data.fields).forEach(([k,v])=>{
       const input=document.createElement('input');
