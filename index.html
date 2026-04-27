@@ -260,6 +260,9 @@
       <div class="field-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="signup-pw" placeholder="Min. 6 characters"/></div>
       <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create account</button>
+      <div style="text-align:center;margin-top:12px;">
+        <span style="font-size:11px;color:var(--ink3);">By creating an account you agree to our <a href="/privacy.html" target="_blank" style="color:var(--accent);text-decoration:underline;">Privacy Policy</a></span>
+      </div>
     </div>
     <div id="forgot-form" style="display:none">
       <p style="font-size:13px;color:var(--ink2);margin-bottom:1rem;">Enter your email and we'll send you a link to reset your password.</p>
@@ -297,6 +300,9 @@
       <div class="upload-zone" onclick="document.getElementById('pdf-upload').click()">
         <input type="file" id="pdf-upload" accept=".pdf" onchange="handlePdfUpload(event)"/>
         <div class="upload-zone-text"><strong>+ Upload PDF</strong>Drag or click to add template</div>
+      </div>
+      <div style="margin-top:auto;padding:12px 8px 4px;border-top:1px solid var(--rule);">
+        <a href="/privacy.html" target="_blank" style="font-size:11px;color:var(--ink3);text-decoration:none;display:block;text-align:center;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink3)'">Privacy Policy</a>
       </div>
     </div>
     <div id="editor-area" style="flex:1;overflow-y:auto;">
