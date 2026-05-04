@@ -1516,21 +1516,21 @@ function highlightPdfField(fieldName) {
   const fieldW = pos.w * scale;
   const fieldH = pos.h * scale;
 
-  // Panel display width
+  // Panel display width — full width of panel
   const panelW = 400;
 
-  // Context: show field + generous padding above (for context) and below
-  const paddingAbove = 80; // generous space above to show surrounding content
-  const paddingBelow = 40;
-  const paddingSide = 30;
+  // Show full page width, crop vertically to half-page centred on the field
+  // This shows plenty of context above and below so user can read surrounding text
+  const cropX = 0; // always full width
+  const cropW = canvas.width; // full page width
 
-  // Crop region in canvas pixels
-  const cropX = Math.max(0, fieldX - paddingSide);
-  const cropY = Math.max(0, fieldY - paddingAbove);
-  const cropW = Math.min(canvas.width - cropX, fieldW + paddingSide * 2);
-  const cropH = Math.min(canvas.height - cropY, fieldH + paddingAbove + paddingBelow);
+  // Show half the page height centred on the field — generous context
+  const halfPageH = canvas.height * 0.5;
+  const fieldCentreY = fieldY + (fieldH / 2);
+  const cropY = Math.max(0, Math.min(canvas.height - halfPageH, fieldCentreY - halfPageH / 2));
+  const cropH = Math.min(halfPageH, canvas.height - cropY);
 
-  // Scale the crop to fill the panel width nicely
+  // Scale so full page width fits the panel
   const displayScale = panelW / cropW;
   const displayW = Math.floor(cropW * displayScale);
   const displayH = Math.floor(cropH * displayScale);
