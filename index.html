@@ -1433,83 +1433,48 @@ async function initPdfPreview(tpl) {
     const form = pdfLibDoc.getForm();
     const pdfPages = pdfLibDoc.getPages();
 
-    // Get all acroform fields and their positions
-    const acroForm = pdfLibDoc.catalog.lookupMaybe(PDFLib.PDFName.of('AcroForm'), PDFLib.PDFDict);
-    if(acroForm) {
-      const fieldsArr = acroForm.lookupMaybe(PDFLib.PDFName.of('Fields'), PDFLib.PDFArray);
-      if(fieldsArr) {
-        for(let fi = 0; fi < fieldsArr.size(); fi++) {
-          try {
-            const fieldRef = fieldsArr.get(fi);
-            const fieldDict = pdfLibDoc.context.lookup(fieldRef, PDFLib.PDFDict);
-            if(!fieldDict) continue;
-            const nameObj = fieldDict.lookupMaybe(PDFLib.PDFName.of('T'), PDFLib.PDFString) ||
-                           fieldDict.lookupMaybe(PDFLib.PDFName.of('T'), PDFLib.PDFHexString);
-            if(!nameObj) continue;
-            const name = nameObj.decodeText ? nameObj.decodeText() : nameObj.asString();
-            const rectObj = fieldDict.lookupMaybe(PDFLib.PDFName.of('Rect'), PDFLib.PDFArray);
-            const pageRef = fieldDict.lookupMaybe(PDFLib.PDFName.of('P'), PDFLib.PDFRef);
-            if(!rectObj) continue;
-            const x = rectObj.get(0).asNumber();
-            const y = rectObj.get(1).asNumber();
-            const x2 = rectObj.get(2).asNumber();
-            const y2 = rectObj.get(3).asNumber();
-            const w = x2 - x;
-            const h = y2 - y;
-            // Find page index
-            let pageIdx = 0;
-            if(pageRef) {
-              for(let p = 0; p < pdfPages.length; p++) {
-                if(pdfPages[p].ref.objectNumber === pageRef.objectNumber) { pageIdx = p; break; }
-              }
-            }
-            const pageH = pdfPages[pageIdx].getHeight();
-            if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
-            previewFieldPositions[name].push({ page: pageIdx + 1, x, y, w, h, pageH });
-          } catch(e) {}
+    // Use pdf-lib getFields() with widget annotations to find positions
+    const pdfJsDoc = await pdfjsLib.getDocument({ data: uint8.slice() }).promise;
+    for(let pageNum = 1; pageNum <= pdfJsDoc.numPages; pageNum++) {
+      const pdfJsPage = await pdfJsDoc.getPage(pageNum);
+      const annotations = await pdfJsPage.getAnnotations();
+      const pageH = pdfPages[pageNum-1].getHeight();
+      annotations.forEach(ann => {
+        if(ann.subtype === 'Widget' && ann.fieldName && ann.rect) {
+          const name = ann.fieldName;
+          const [x1, y1, x2, y2] = ann.rect;
+          const x = Math.min(x1, x2);
+          const y = Math.min(y1, y2);
+          const w = Math.abs(x2 - x1);
+          const h = Math.abs(y2 - y1);
+          if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
+          previewFieldPositions[name].push({ page: pageNum, x, y, w, h, pageH });
         }
-      }
-    }
-    // Also try standard approach as fallback
-    if(Object.keys(previewFieldPositions).length === 0) {
-      form.getFields().forEach(field => {
-        try {
-          const name = field.getName();
-          const widgets = field.acroField.Kids ? field.acroField.Kids() : null;
-          if(!widgets) return;
-          for(let i = 0; i < widgets.size(); i++) {
-            const widget = widgets.get(i);
-            const rectArr = widget.Rect ? widget.Rect().asArray() : null;
-            if(!rectArr) continue;
-            let pageIdx = 0;
-            const x = rectArr[0].asNumber();
-            const y = rectArr[1].asNumber();
-            const w = rectArr[2].asNumber() - x;
-            const h = rectArr[3].asNumber() - y;
-            const pageH = pdfPages[pageIdx].getHeight();
-            if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
-            previewFieldPositions[name].push({ page: pageIdx + 1, x, y, w, h, pageH });
-          }
-        } catch(e) {}
       });
     }
+    console.log('Field positions found:', Object.keys(previewFieldPositions).length, previewFieldPositions);
 
     // Pre-render all pages to canvases
+    const dpr = window.devicePixelRatio || 1;
     for(let pageNum = 1; pageNum <= previewTotalPages; pageNum++) {
       const page = await previewPdfDoc.getPage(pageNum);
-      // Calculate scale to fit the panel width (440px - 32px padding = 408px)
       const viewport0 = page.getViewport({ scale: 1 });
-      const targetW = 408;
-      const scale = targetW / viewport0.width;
+      const targetW = 400;
+      const scale = (targetW / viewport0.width);
       const viewport = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      // Use DPR for crisp rendering
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = Math.floor(viewport.width) + 'px';
+      canvas.style.height = Math.floor(viewport.height) + 'px';
       const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
       ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, viewport.width, viewport.height);
       await page.render({ canvasContext: ctx, viewport }).promise;
-      previewRenderedPages[pageNum] = { canvas, scale, viewport };
+      previewRenderedPages[pageNum] = { canvas, scale, viewport, dpr, cssW: Math.floor(viewport.width), cssH: Math.floor(viewport.height) };
+      console.log('Rendered page', pageNum, 'scale:', scale, 'fields:', JSON.stringify(previewFieldPositions));
     }
 
     previewRendered = true;
@@ -1534,13 +1499,15 @@ function showPreviewPage(pageNum) {
   const wrapper = document.createElement('div');
   wrapper.className = 'pdf-preview-page';
   wrapper.dataset.page = pageNum;
-  wrapper.style.width = pageData.canvas.width + 'px';
-  wrapper.style.height = pageData.canvas.height + 'px';
+  wrapper.style.width = pageData.cssW + 'px';
+  wrapper.style.height = pageData.cssH + 'px';
 
-  // cloneNode does not copy canvas pixel data — draw onto a new canvas instead
+  // Draw the pre-rendered canvas onto a new canvas
   const newCanvas = document.createElement('canvas');
   newCanvas.width = pageData.canvas.width;
   newCanvas.height = pageData.canvas.height;
+  newCanvas.style.width = pageData.cssW + 'px';
+  newCanvas.style.height = pageData.cssH + 'px';
   newCanvas.style.display = 'block';
   const ctx = newCanvas.getContext('2d');
   ctx.drawImage(pageData.canvas, 0, 0);
@@ -1565,10 +1532,12 @@ function highlightPdfField(fieldName) {
   if(!pageData) return;
 
   const scale = pageData.scale;
+  // Use CSS dimensions (not DPR dimensions) for overlay positioning
   const screenX = pos.x * scale;
   const screenY = (pos.pageH - pos.y - pos.h) * scale;
-  const screenW = pos.w * scale;
-  const screenH = pos.h * scale;
+  const screenW = Math.max(pos.w * scale, 20);
+  const screenH = Math.max(pos.h * scale, 12);
+  console.log('Highlighting field:', fieldName, 'pos:', pos, 'screen:', screenX, screenY, screenW, screenH);
 
   const wrapper = document.querySelector('.pdf-preview-page[data-page="' + pos.page + '"]');
   if(!wrapper) return;
