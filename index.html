@@ -1114,9 +1114,8 @@ async function generatePDF(){
         tf.updateAppearances(helvetica);
       }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
-    // Update all appearances with embedded font before flattening
+    // Update all appearances with embedded font — do NOT flatten so PDF stays editable in Adobe
     form.updateFieldAppearances(helvetica);
-    form.flatten();
     const pdfBytes=await pdfDoc.save();
     const blob=new Blob([pdfBytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=tpl.name+' — filled.pdf';a.click();
