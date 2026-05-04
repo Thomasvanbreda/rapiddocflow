@@ -135,6 +135,8 @@
   .date-format-select:focus { border-color: var(--accent); }
   .seg-del { color: var(--ink3); cursor: pointer; font-size: 18px; padding: 4px; opacity: 0.4; transition: all 0.15s; flex-shrink: 0; margin-top: 2px; border-radius: 6px; }
   .seg-del:hover { opacity: 1; color: var(--danger); background: #FEE2E2; }
+  .btn-view-pdf { padding: 7px 10px; background: var(--surface); border: 1.5px solid var(--rule); border-radius: var(--radius); font-size: 14px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+  .btn-view-pdf:hover { border-color: var(--accent); background: var(--accent-light); }
   .seg-drag { color: var(--ink3); cursor: grab; font-size: 18px; padding: 4px 6px; opacity: 0.35; transition: all 0.15s; flex-shrink: 0; margin-top: 2px; border-radius: 6px; user-select: none; line-height: 1; }
   .seg-drag:hover { opacity: 0.8; color: var(--ink); background: var(--rule); }
   .seg-drag:active { cursor: grabbing; }
@@ -214,15 +216,7 @@
   .cfs-option.selected { background: var(--accent-light); color: var(--accent); font-weight: 600; }
   .cfs-custom { color: var(--ink3); font-style: italic; border-top: 1px solid var(--rule); margin-top: 4px; }
   /* PDF Preview Panel */
-  .pdf-preview-panel { position: fixed; top: 58px; right: 0; bottom: 0; width: 440px; background: var(--white); border-left: 1.5px solid var(--rule); box-shadow: -8px 0 32px rgba(0,0,0,0.12); z-index: 500; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.25s ease; }
-  .pdf-preview-panel.open { transform: translateX(0); }
-  .pdf-preview-header { padding: 14px 18px; border-bottom: 1px solid var(--rule); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: var(--white); }
-  .pdf-preview-title { font-size: 13px; font-weight: 700; color: var(--ink); }
-  .pdf-preview-sub { font-size: 11px; color: var(--ink3); margin-top: 2px; }
-  .pdf-preview-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--ink3); transition: all 0.15s; }
-  .pdf-preview-close:hover { background: #FEE2E2; color: var(--danger); }
-  .pdf-preview-page-indicator { padding: 8px 18px; border-bottom: 1px solid var(--rule); font-size: 11px; color: var(--ink3); text-align: center; flex-shrink: 0; background: var(--surface); }
-  .pdf-preview-body { flex: 1; overflow: hidden; display: flex; align-items: stretch; background: #e5e7eb; padding: 0; position: relative; }
+
 
   /* ── LOCKED TEMPLATES ── */
   .template-item.locked { opacity: 0.45; }
@@ -475,19 +469,7 @@
     </div>
   </div>
 </div>
-<div class="pdf-preview-panel" id="pdfPreviewPanel">
-  <div class="pdf-preview-header">
-    <div>
-      <div class="pdf-preview-title">PDF Field Preview</div>
-      <div class="pdf-preview-sub">Hover over a field name to highlight it</div>
-    </div>
-    <button class="pdf-preview-close" onclick="closePdfPreviewPanel()">×</button>
-  </div>
-  <div class="pdf-preview-page-indicator" id="pdfPreviewPageIndicator">Loading...</div>
-  <div class="pdf-preview-body" id="pdfPreviewBody">
-    <div style="text-align:center;color:#9CA3AF;font-size:13px;">Loading PDF...</div>
-  </div>
-</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -779,7 +761,7 @@ async function confirmDuplicate(){
   closeDupeModal();renderSidebar();selectTemplate(newId);showToast('Duplicated!');
 }
 
-function selectTemplate(id){activeTemplateId=id;previewRendered=false;previewPdfDoc=null;renderSidebar();renderEditor();}
+function selectTemplate(id){activeTemplateId=id;renderSidebar();renderEditor();const t=getTemplate();if(t)buildFieldPageMap(t);}
 function getTemplate(){return activeTemplateId?templates[activeTemplateId]:null;}
 
 // Save immediately to memory, debounce cloud save
@@ -851,18 +833,15 @@ function buildBoxEl(box,bi,pdfFields){
       </div>
       <div style="flex:1;min-width:160px;">
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Maps to PDF field</div>
-        <div class="custom-field-select" id="cfs-${box.id}">
-          <div class="cfs-trigger" onclick="toggleFieldDropdown('${box.id}','${box.pdfField||''}')"
-            tabindex="0">
-            <span class="cfs-value">${box.pdfField||'— not mapped —'}</span>
-            <span class="cfs-arrow">▼</span>
-          </div>
-          <div class="cfs-dropdown" id="cfsd-${box.id}" style="display:none;">
-            <div class="cfs-option" data-value="" onmouseenter="highlightPdfField('')" onclick="pickField('${box.id}','')" >— not mapped —</div>
-            ${pdfFields.map(f=>`<div class="cfs-option${box.pdfField===f?' selected':''}" data-value="${f}" onmouseenter="highlightPdfField('${f}')" onclick="pickField('${box.id}','${f}')">${f}</div>`).join('')}
-            <div class="cfs-option cfs-custom" data-value="__custom__" onmouseenter="highlightPdfField('')" onclick="pickField('${box.id}','__custom__')">Custom field name...</div>
-          </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="mapping-select" onchange="updateBoxField('${box.id}','pdfField',this.value)">
+            <option value="">— not mapped —</option>
+            ${pdfFields.map(f=>`<option value="${f}" ${box.pdfField===f?'selected':''}>${f} ${getFieldPage(f,'${box.id}')}</option>`).join('')}
+            <option value="__custom__" ${!pdfFields.includes(box.pdfField)&&box.pdfField?'selected':''}>✏️ Custom field name...</option>
+          </select>
+          <button class="btn-view-pdf" onclick="viewPdfInTab('${box.id}')" title="View PDF in new tab">📄</button>
         </div>
+        ${box.pdfField && !pdfFields.includes(box.pdfField) && box.pdfField !== '__custom__' ? `<input class="chain-input" style="margin-top:6px;" value="${escHtml(box.pdfField)}" placeholder="Custom field name..." oninput="updateBoxField('${box.id}','pdfField',this.value)"/>` : ''}
       </div>
     </div>
     <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Sentence builder</div>
@@ -1315,66 +1294,6 @@ async function dragSegDrop(e, boxId, targetSegId) {
   showToast('Reordered!');
 }
 
-// ── CUSTOM FIELD DROPDOWN ────────────────────────────────────────────────────
-let openDropdownBoxId = null;
-
-function toggleFieldDropdown(boxId, currentValue) {
-  const dropdown = document.getElementById('cfsd-' + boxId);
-  const trigger = dropdown.previousElementSibling;
-  const isOpen = dropdown.style.display !== 'none';
-
-  // Close any other open dropdown
-  if(openDropdownBoxId && openDropdownBoxId !== boxId) {
-    const other = document.getElementById('cfsd-' + openDropdownBoxId);
-    if(other) { other.style.display = 'none'; other.previousElementSibling.classList.remove('open'); }
-  }
-
-  if(isOpen) {
-    dropdown.style.display = 'none';
-    trigger.classList.remove('open');
-    closePdfPreviewPanel();
-    openDropdownBoxId = null;
-  } else {
-    dropdown.style.display = 'block';
-    trigger.classList.add('open');
-    openDropdownBoxId = boxId;
-    openPdfPreviewPanel();
-  }
-}
-
-function pickField(boxId, value) {
-  const dropdown = document.getElementById('cfsd-' + boxId);
-  const trigger = dropdown.previousElementSibling;
-  dropdown.style.display = 'none';
-  trigger.classList.remove('open');
-  openDropdownBoxId = null;
-
-  if(value === '__custom__') {
-    const custom = prompt('Enter custom field name:');
-    if(custom) {
-      updateBoxField(boxId, 'pdfField', custom);
-      trigger.querySelector('.cfs-value').textContent = custom;
-    }
-  } else {
-    updateBoxField(boxId, 'pdfField', value);
-    trigger.querySelector('.cfs-value').textContent = value || '— not mapped —';
-  }
-  closePdfPreviewPanel();
-  clearFieldHighlights();
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-  if(!e.target.closest('.custom-field-select') && openDropdownBoxId) {
-    const dropdown = document.getElementById('cfsd-' + openDropdownBoxId);
-    const trigger = dropdown ? dropdown.previousElementSibling : null;
-    if(dropdown) dropdown.style.display = 'none';
-    if(trigger) trigger.classList.remove('open');
-    closePdfPreviewPanel();
-    openDropdownBoxId = null;
-  }
-});
-
 // ── PDF FIELD PREVIEW PANEL ──────────────────────────────────────────────────
 let previewPdfDoc = null;
 let previewFieldPositions = {};
@@ -1399,148 +1318,48 @@ function closePdfPreviewPanel() {
   clearFieldHighlights();
 }
 
-// ── PDF FIELD PREVIEW — canvas version ───────────────────────────────────────
-let previewPages = {}; // pageNum -> {canvas, scale, pageW, pageH}
+// ── PDF FIELD MAPPING HELPERS ────────────────────────────────────────────────
+// Store field->page mapping for display
+let fieldPageMap = {}; // fieldName -> pageNum
 
-async function initPdfPreview(tpl) {
-  const body = document.getElementById('pdfPreviewBody');
-  const indicator = document.getElementById('pdfPreviewPageIndicator');
-  previewFieldPositions = {};
-  previewPages = {};
-  previewRendered = false;
-  previewCurrentPage = 1;
-  body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:2rem;">Loading...</div>';
-  indicator.textContent = 'Hover a field name to highlight it';
+function getFieldPage(fieldName, boxId) {
+  if(!fieldPageMap[fieldName]) return '';
+  return '— p.' + fieldPageMap[fieldName];
+}
 
+async function buildFieldPageMap(tpl) {
+  fieldPageMap = {};
+  if(!tpl || !tpl.pdfB64 || typeof pdfjsLib === 'undefined') return;
   try {
     const uint8 = new Uint8Array(base64ToArrayBuffer(tpl.pdfB64));
     const pdfDoc = await pdfjsLib.getDocument({ data: uint8 }).promise;
-    previewTotalPages = pdfDoc.numPages;
-
-    for(let p = 1; p <= previewTotalPages; p++) {
+    for(let p = 1; p <= pdfDoc.numPages; p++) {
       const page = await pdfDoc.getPage(p);
-      const vp1 = page.getViewport({ scale: 1 });
-
-      // Collect field annotations
       const anns = await page.getAnnotations();
       anns.forEach(a => {
-        if(a.subtype !== 'Widget' || !a.fieldName || !a.rect) return;
-        const [x1,y1,x2,y2] = a.rect;
-        if(!previewFieldPositions[a.fieldName]) previewFieldPositions[a.fieldName] = [];
-        previewFieldPositions[a.fieldName].push({
-          page: p,
-          x: Math.min(x1,x2), y: Math.min(y1,y2),
-          w: Math.abs(x2-x1), h: Math.abs(y2-y1),
-          pageW: vp1.width, pageH: vp1.height
-        });
+        if(a.subtype === 'Widget' && a.fieldName) {
+          if(!fieldPageMap[a.fieldName]) fieldPageMap[a.fieldName] = p;
+        }
       });
-
-      // Render at 3x scale for sharp cropping later
-      const SCALE = 3;
-      const vp = page.getViewport({ scale: SCALE });
-      const cv = document.createElement('canvas');
-      cv.width = vp.width;
-      cv.height = vp.height;
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, cv.width, cv.height);
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      previewPages[p] = { canvas: cv, scale: SCALE, pageW: vp1.width, pageH: vp1.height };
     }
-
-    previewRendered = true;
-    body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:3rem;line-height:1.8;">Hover a field name<br/>to see its location</div>';
-  } catch(e) {
-    body.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:13px;padding:1rem;">Could not render PDF.</div>';
-    console.error(e);
-  }
+  } catch(e) { console.error('Field map error:', e); }
 }
 
-function showPreviewPlaceholder() {
-  const body = document.getElementById('pdfPreviewBody');
-  if(body) body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:3rem;line-height:1.8;">Hover a field name<br/>to see its location</div>';
+function viewPdfInTab(boxId) {
+  const tpl = getTemplate();
+  if(!tpl || !tpl.pdfB64) return showToast('No PDF uploaded yet');
+  // Convert base64 to blob and open in new tab
+  const bytes = base64ToArrayBuffer(tpl.pdfB64);
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-function showPreviewPage(pageNum) { previewCurrentPage = pageNum; }
-
-function highlightPdfField(fieldName) {
-  if(!fieldName || fieldName === '__custom__') { showPreviewPlaceholder(); return; }
-  if(!previewRendered) return;
-  const positions = previewFieldPositions[fieldName];
-  if(!positions || !positions.length) { showPreviewPlaceholder(); return; }
-
-  const pos = positions[0];
-  const pd = previewPages[pos.page];
-  if(!pd) return;
-
-  previewCurrentPage = pos.page;
-  const indicator = document.getElementById('pdfPreviewPageIndicator');
-  if(indicator) indicator.textContent = 'Page ' + pos.page + ' of ' + previewTotalPages + ' — ' + fieldName;
-
-  const body = document.getElementById('pdfPreviewBody');
-  body.innerHTML = '';
-
-  const S = pd.scale;
-  const PANEL_W = 400;
-
-  // Field in canvas pixels (PDF Y is bottom-up)
-  const fx = pos.x * S;
-  const fy = (pos.pageH - pos.y - pos.h) * S;
-  const fw = Math.max(pos.w * S, 20);
-  const fh = Math.max(pos.h * S, 12);
-
-  // Crop: full width, 45% of page height centred on field
-  const cropX = 0;
-  const cropW = pd.canvas.width;
-  const ctxH = pd.canvas.height * 0.45;
-  const cropY = Math.max(0, Math.min(pd.canvas.height - ctxH, fy + fh/2 - ctxH/2));
-  const cropH = Math.min(ctxH, pd.canvas.height - cropY);
-
-  // Scale to fit panel width
-  const ds = PANEL_W / cropW;
-  const dispW = PANEL_W;
-  const dispH = Math.round(cropH * ds);
-
-  const out = document.createElement('canvas');
-  out.width = dispW;
-  out.height = dispH;
-  out.style.cssText = 'display:block;width:' + dispW + 'px;height:' + dispH + 'px;box-shadow:0 2px 12px rgba(0,0,0,0.12);border-radius:6px;';
-  const oc = out.getContext('2d');
-
-  // Draw cropped section
-  oc.drawImage(pd.canvas, cropX, cropY, cropW, cropH, 0, 0, dispW, dispH);
-
-  // Highlight box
-  const hx = (fx - cropX) * ds;
-  const hy = (fy - cropY) * ds;
-  const hw = Math.max(fw * ds, 20);
-  const hh = Math.max(fh * ds, 12);
-  oc.strokeStyle = '#4F46E5';
-  oc.lineWidth = 2.5;
-  oc.strokeRect(hx, hy, hw, hh);
-  oc.fillStyle = 'rgba(79,70,229,0.12)';
-  oc.fillRect(hx, hy, hw, hh);
-
-  // Label pill
-  oc.font = 'bold 12px sans-serif';
-  const lw = oc.measureText(fieldName).width + 16;
-  const lh = 20;
-  const lx = Math.min(hx, dispW - lw - 4);
-  const ly = Math.max(4, hy - lh - 5);
-  oc.fillStyle = '#4F46E5';
-  oc.beginPath();
-  if(oc.roundRect) oc.roundRect(lx, ly, lw, lh, 5);
-  else oc.rect(lx, ly, lw, lh);
-  oc.fill();
-  oc.fillStyle = 'white';
-  oc.fillText(fieldName, lx + 8, ly + 14);
-
-  body.appendChild(out);
-}
-
-function clearFieldHighlights() {
-  document.querySelectorAll('.field-highlight').forEach(el => el.remove());
-}
+function openPdfPreviewPanel() {}
+function closePdfPreviewPanel() {}
+function highlightPdfField() {}
+function clearFieldHighlights() {}
 
 function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
