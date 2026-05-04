@@ -222,7 +222,7 @@
   .pdf-preview-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--ink3); transition: all 0.15s; }
   .pdf-preview-close:hover { background: #FEE2E2; color: var(--danger); }
   .pdf-preview-page-indicator { padding: 8px 18px; border-bottom: 1px solid var(--rule); font-size: 11px; color: var(--ink3); text-align: center; flex-shrink: 0; background: var(--surface); }
-  .pdf-preview-body { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #e5e7eb; padding: 16px; position: relative; }
+  .pdf-preview-body { flex: 1; overflow: hidden; display: flex; align-items: stretch; background: #e5e7eb; padding: 0; position: relative; }
 
   /* ── LOCKED TEMPLATES ── */
   .template-item.locked { opacity: 0.45; }
@@ -1399,37 +1399,34 @@ function closePdfPreviewPanel() {
   clearFieldHighlights();
 }
 
+let previewBlobUrl = null;
+let previewIframe = null;
+let previewPageHeights = {}; // pageNum -> height in points
+let previewPageWidths = {};
+
 async function initPdfPreview(tpl) {
   const body = document.getElementById('pdfPreviewBody');
   const indicator = document.getElementById('pdfPreviewPageIndicator');
-  body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:2rem;">Reading PDF fields...</div>';
+  body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:2rem;">Loading PDF...</div>';
   previewFieldPositions = {};
-  previewRenderedPages = {};
   previewRendered = false;
   previewCurrentPage = 1;
 
   try {
-    if(typeof pdfjsLib === 'undefined') {
-      body.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:13px;padding:1rem;">PDF.js not loaded.</div>';
-      return;
-    }
-
     const arrBuf = base64ToArrayBuffer(tpl.pdfB64);
     const uint8 = new Uint8Array(arrBuf);
 
-    // Load with PDF.js at HIGH resolution for crisp zoomed crops
-    previewPdfDoc = await pdfjsLib.getDocument({ data: uint8.slice() }).promise;
-    previewTotalPages = previewPdfDoc.numPages;
+    // Get field positions and page dimensions using PDF.js
+    const pdfJsDoc = await pdfjsLib.getDocument({ data: uint8.slice() }).promise;
+    previewTotalPages = pdfJsDoc.numPages;
 
-    // Get field positions using PDF.js annotations
-    const { PDFDocument } = PDFLib;
-    const pdfLibDoc = await PDFDocument.load(uint8.slice(), { ignoreEncryption: true });
-    const pdfPages = pdfLibDoc.getPages();
-
+    // Get page dimensions and field annotations
     for(let pageNum = 1; pageNum <= previewTotalPages; pageNum++) {
-      const pdfJsPage = await previewPdfDoc.getPage(pageNum);
-      const annotations = await pdfJsPage.getAnnotations();
-      const pageH = pdfPages[pageNum-1].getHeight();
+      const page = await pdfJsDoc.getPage(pageNum);
+      const vp = page.getViewport({ scale: 1 });
+      previewPageHeights[pageNum] = vp.height;
+      previewPageWidths[pageNum] = vp.width;
+      const annotations = await page.getAnnotations();
       annotations.forEach(ann => {
         if(ann.subtype === 'Widget' && ann.fieldName && ann.rect) {
           const [x1, y1, x2, y2] = ann.rect;
@@ -1438,57 +1435,60 @@ async function initPdfPreview(tpl) {
           const w = Math.abs(x2 - x1);
           const h = Math.abs(y2 - y1);
           if(!previewFieldPositions[ann.fieldName]) previewFieldPositions[ann.fieldName] = [];
-          previewFieldPositions[ann.fieldName].push({ page: pageNum, x, y, w, h, pageH });
+          previewFieldPositions[ann.fieldName].push({ page: pageNum, x, y, w, h, pageH: vp.height, pageW: vp.width });
         }
       });
     }
 
-    // Render each page at HIGH resolution (3x scale) for crisp cropping
-    const HIGH_SCALE = 3.0;
-    for(let pageNum = 1; pageNum <= previewTotalPages; pageNum++) {
-      const page = await previewPdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: HIGH_SCALE });
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      previewRenderedPages[pageNum] = {
-        canvas, scale: HIGH_SCALE,
-        pageW: pdfPages[pageNum-1].getWidth(),
-        pageH: pdfPages[pageNum-1].getHeight()
-      };
-    }
+    // Create blob URL for native iframe rendering
+    if(previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    const blob = new Blob([uint8], { type: 'application/pdf' });
+    previewBlobUrl = URL.createObjectURL(blob);
+
+    // Build iframe + overlay container
+    body.innerHTML = '';
+    const container = document.createElement('div');
+    container.id = 'previewContainer';
+    container.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden;';
+
+    previewIframe = document.createElement('iframe');
+    previewIframe.id = 'previewIframe';
+    previewIframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+    previewIframe.src = previewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+
+    // Transparent overlay for highlight boxes
+    const overlay = document.createElement('div');
+    overlay.id = 'previewOverlay';
+    overlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:10;overflow:hidden;';
+
+    container.appendChild(previewIframe);
+    container.appendChild(overlay);
+    body.appendChild(container);
 
     previewRendered = true;
-    // Show placeholder until field is hovered
-    showPreviewPlaceholder();
+    indicator.textContent = 'Hover a field name to highlight it';
 
   } catch(err) {
-    body.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:13px;padding:1rem;">Could not render PDF.</div>';
+    body.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:13px;padding:1rem;">Could not load PDF.</div>';
     console.error('Preview error:', err);
   }
 }
 
 function showPreviewPlaceholder() {
-  const body = document.getElementById('pdfPreviewBody');
   const indicator = document.getElementById('pdfPreviewPageIndicator');
-  indicator.textContent = 'Hover a field name to preview its location';
-  body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:3rem;line-height:1.7;">Hover over a field name<br/>in the dropdown to see<br/>its location in the PDF</div>';
+  if(indicator) indicator.textContent = 'Hover a field name to highlight it';
+  clearFieldHighlights();
 }
 
 function showPreviewPage(pageNum) {
   previewCurrentPage = pageNum;
-  const indicator = document.getElementById('pdfPreviewPageIndicator');
-  indicator.textContent = 'Page ' + pageNum + ' of ' + previewTotalPages;
 }
 
 function highlightPdfField(fieldName) {
   clearFieldHighlights();
-  if(!fieldName || fieldName === '__custom__' || !fieldName) return;
-  if(!previewRendered) return;
+  if(!fieldName || fieldName === '__custom__') return;
+  if(!previewRendered || !previewIframe) return;
+
   const positions = previewFieldPositions[fieldName];
   if(!positions || !positions.length) {
     showPreviewPlaceholder();
@@ -1496,92 +1496,73 @@ function highlightPdfField(fieldName) {
   }
 
   const pos = positions[0];
-  const pageData = previewRenderedPages[pos.page];
-  if(!pageData) return;
-
   previewCurrentPage = pos.page;
+
   const indicator = document.getElementById('pdfPreviewPageIndicator');
-  indicator.textContent = 'Page ' + pos.page + ' of ' + previewTotalPages + ' — ' + fieldName;
+  if(indicator) indicator.textContent = 'Page ' + pos.page + ' of ' + previewTotalPages + '  —  ' + fieldName;
 
-  const body = document.getElementById('pdfPreviewBody');
-  body.innerHTML = '';
+  // Jump iframe to the correct page
+  previewIframe.src = previewBlobUrl + '#page=' + pos.page + '&toolbar=0&navpanes=0&scrollbar=0&view=FitH';
 
-  const scale = pageData.scale;
-  const canvas = pageData.canvas;
+  // Calculate overlay position
+  // The iframe shows the PDF at fit-width inside the 400px panel
+  // We need to convert PDF point coords to panel pixel coords
+  const panelW = previewIframe.offsetWidth || 400;
+  const pdfW = pos.pageW;
+  const scale = panelW / pdfW;
 
-  // Convert PDF coords to canvas pixels
-  // PDF Y is bottom-up, canvas Y is top-down
-  const fieldX = pos.x * scale;
-  const fieldY = (pos.pageH - pos.y - pos.h) * scale;
-  const fieldW = pos.w * scale;
-  const fieldH = pos.h * scale;
+  // PDF Y is bottom-up, screen Y is top-down
+  // We don't know exact scroll position inside iframe so we estimate
+  // based on where on the page the field sits as a fraction
+  const fieldTopFrac = (pos.pageH - pos.y - pos.h) / pos.pageH;
+  const fieldLeftPx = pos.x * scale;
+  const fieldTopPx = fieldTopFrac * (panelW * (pos.pageH / pos.pageW));
+  const fieldWpx = Math.max(pos.w * scale, 30);
+  const fieldHpx = Math.max(pos.h * scale, 14);
 
-  // Panel display width — full width of panel
-  const panelW = 400;
+  const overlay = document.getElementById('previewOverlay');
+  if(!overlay) return;
 
-  // Show full page width, crop vertically to half-page centred on the field
-  // This shows plenty of context above and below so user can read surrounding text
-  const cropX = 0; // always full width
-  const cropW = canvas.width; // full page width
+  // Highlight box
+  const box = document.createElement('div');
+  box.style.cssText = \`
+    position:absolute;
+    left:\${fieldLeftPx}px;
+    top:\${fieldTopPx}px;
+    width:\${fieldWpx}px;
+    height:\${fieldHpx}px;
+    border:3px solid #4F46E5;
+    background:rgba(79,70,229,0.15);
+    border-radius:3px;
+    animation:pulse-field 1s ease-in-out infinite;
+    box-sizing:border-box;
+  \`;
 
-  // Show half the page height centred on the field — generous context
-  const halfPageH = canvas.height * 0.5;
-  const fieldCentreY = fieldY + (fieldH / 2);
-  const cropY = Math.max(0, Math.min(canvas.height - halfPageH, fieldCentreY - halfPageH / 2));
-  const cropH = Math.min(halfPageH, canvas.height - cropY);
-
-  // Scale so full page width fits the panel
-  const displayScale = panelW / cropW;
-  const displayW = Math.floor(cropW * displayScale);
-  const displayH = Math.floor(cropH * displayScale);
-
-  // Draw cropped region onto display canvas
-  const displayCanvas = document.createElement('canvas');
-  displayCanvas.width = displayW;
-  displayCanvas.height = displayH;
-  displayCanvas.style.width = displayW + 'px';
-  displayCanvas.style.height = displayH + 'px';
-  displayCanvas.style.display = 'block';
-  displayCanvas.style.borderRadius = '8px';
-  displayCanvas.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
-  const dCtx = displayCanvas.getContext('2d');
-  dCtx.fillStyle = 'white';
-  dCtx.fillRect(0, 0, displayW, displayH);
-  dCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, displayW, displayH);
-
-  // Draw highlight rectangle on the display canvas
-  const hX = (fieldX - cropX) * displayScale;
-  const hY = (fieldY - cropY) * displayScale;
-  const hW = fieldW * displayScale;
-  const hH = fieldH * displayScale;
-
-  dCtx.strokeStyle = '#4F46E5';
-  dCtx.lineWidth = 3;
-  dCtx.strokeRect(hX, hY, hW, hH);
-  dCtx.fillStyle = 'rgba(79,70,229,0.12)';
-  dCtx.fillRect(hX, hY, hW, hH);
-
-  // Draw label above the highlight
-  const labelText = fieldName;
-  dCtx.font = 'bold 13px sans-serif';
-  const labelW = dCtx.measureText(labelText).width + 16;
-  const labelH = 22;
-  const labelX = hX;
-  const labelY = hY - labelH - 4;
-  if(labelY > 0) {
-    // Rounded rect for label
-    dCtx.fillStyle = '#4F46E5';
-    dCtx.beginPath();
-    dCtx.roundRect(labelX, labelY, labelW, labelH, 6);
-    dCtx.fill();
-    dCtx.fillStyle = 'white';
-    dCtx.fillText(labelText, labelX + 8, labelY + 15);
-  }
-
-  body.appendChild(displayCanvas);
+  // Label above the box
+  const label = document.createElement('div');
+  label.textContent = fieldName;
+  label.style.cssText = \`
+    position:absolute;
+    top:-26px;
+    left:0;
+    background:linear-gradient(135deg,#4F46E5,#6366F1);
+    color:white;
+    font-size:10px;
+    font-weight:700;
+    padding:3px 9px;
+    border-radius:50px;
+    white-space:nowrap;
+    box-shadow:0 2px 8px rgba(79,70,229,0.4);
+    font-family:'Outfit',sans-serif;
+  \`;
+  label.textContent = fieldName;
+  box.appendChild(label);
+  overlay.appendChild(box);
 }
 
 function clearFieldHighlights() {
+  const overlay = document.getElementById('previewOverlay');
+  if(overlay) overlay.innerHTML = '';
   document.querySelectorAll('.field-highlight').forEach(el => el.remove());
 }
 
