@@ -664,7 +664,7 @@ async function downloadPDF() {
           parseInt(field.color.slice(3,5), 16) / 255,
           parseInt(field.color.slice(5,7), 16) / 255
         ),
-        backgroundColor: PDFLib.rgb(0.98, 0.98, 1),
+        // No background colour — field is transparent so text is always visible
       });
       // Fixed 9pt font — readable minimum, text wraps vertically never horizontally
       textField.enableMultiline();

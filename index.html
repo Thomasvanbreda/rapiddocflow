@@ -1088,7 +1088,11 @@ function buildFilledSentence(box){
 async function generatePDF(){
   const tpl=getTemplate();
   try{
-    const{PDFDocument}=PDFLib;const pdfDoc=await PDFDocument.load(base64ToArrayBuffer(tpl.pdfB64),{ignoreEncryption:true});const form=pdfDoc.getForm();
+    const{PDFDocument, StandardFonts}=PDFLib;
+    const pdfDoc=await PDFDocument.load(base64ToArrayBuffer(tpl.pdfB64),{ignoreEncryption:true});
+    // Embed Helvetica font so text always renders visibly after flattening
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const form=pdfDoc.getForm();
     tpl.boxes.forEach(box=>{
       if(!box.pdfField)return;
       const assembled=box.segments.map(seg=>{
@@ -1101,9 +1105,19 @@ async function generatePDF(){
         }
         return val||'';
       }).join(' ').trim();
-      try{ const tf=form.getTextField(box.pdfField); tf.enableMultiline(); tf.setFontSize(9); tf.setText(assembled); }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
+      try{
+        const tf=form.getTextField(box.pdfField);
+        tf.enableMultiline();
+        tf.setFontSize(9);
+        tf.updateAppearances(helvetica);
+        tf.setText(assembled);
+        tf.updateAppearances(helvetica);
+      }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
-    form.flatten();const pdfBytes=await pdfDoc.save();
+    // Update all appearances with embedded font before flattening
+    form.updateFieldAppearances(helvetica);
+    form.flatten();
+    const pdfBytes=await pdfDoc.save();
     const blob=new Blob([pdfBytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=tpl.name+' — filled.pdf';a.click();
     setTimeout(()=>URL.revokeObjectURL(url),5000);showToast('PDF downloaded!');
