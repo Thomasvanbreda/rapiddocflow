@@ -1440,10 +1440,9 @@ async function initPdfPreview(tpl) {
       });
     }
 
-    // Create blob URL for native iframe rendering
-    if(previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-    const blob = new Blob([uint8], { type: 'application/pdf' });
-    previewBlobUrl = URL.createObjectURL(blob);
+    // Convert to base64 data URL for iframe — works without CSP issues
+    const base64pdf = btoa(String.fromCharCode(...uint8));
+    previewBlobUrl = 'data:application/pdf;base64,' + base64pdf;
 
     // Build iframe + overlay container
     body.innerHTML = '';
@@ -1502,7 +1501,7 @@ function highlightPdfField(fieldName) {
   if(indicator) indicator.textContent = 'Page ' + pos.page + ' of ' + previewTotalPages + '  —  ' + fieldName;
 
   // Jump iframe to the correct page
-  previewIframe.src = previewBlobUrl + '#page=' + pos.page + '&toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+  previewIframe.src = previewBlobUrl + '#page=' + pos.page + '&toolbar=0&navpanes=0&view=FitH';
 
   // Calculate overlay position
   // The iframe shows the PDF at fit-width inside the 400px panel
@@ -1525,7 +1524,7 @@ function highlightPdfField(fieldName) {
 
   // Highlight box
   const box = document.createElement('div');
-  box.style.cssText = \`
+  box.style.cssText = `
     position:absolute;
     left:\${fieldLeftPx}px;
     top:\${fieldTopPx}px;
@@ -1536,12 +1535,12 @@ function highlightPdfField(fieldName) {
     border-radius:3px;
     animation:pulse-field 1s ease-in-out infinite;
     box-sizing:border-box;
-  \`;
+  `;
 
   // Label above the box
   const label = document.createElement('div');
   label.textContent = fieldName;
-  label.style.cssText = \`
+  label.style.cssText = `
     position:absolute;
     top:-26px;
     left:0;
@@ -1554,7 +1553,7 @@ function highlightPdfField(fieldName) {
     white-space:nowrap;
     box-shadow:0 2px 8px rgba(79,70,229,0.4);
     font-family:'Outfit',sans-serif;
-  \`;
+  `;
   label.textContent = fieldName;
   box.appendChild(label);
   overlay.appendChild(box);
