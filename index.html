@@ -1536,7 +1536,15 @@ function showPreviewPage(pageNum) {
   wrapper.dataset.page = pageNum;
   wrapper.style.width = pageData.canvas.width + 'px';
   wrapper.style.height = pageData.canvas.height + 'px';
-  wrapper.appendChild(pageData.canvas.cloneNode(true));
+
+  // cloneNode does not copy canvas pixel data — draw onto a new canvas instead
+  const newCanvas = document.createElement('canvas');
+  newCanvas.width = pageData.canvas.width;
+  newCanvas.height = pageData.canvas.height;
+  newCanvas.style.display = 'block';
+  const ctx = newCanvas.getContext('2d');
+  ctx.drawImage(pageData.canvas, 0, 0);
+  wrapper.appendChild(newCanvas);
   body.appendChild(wrapper);
 }
 
