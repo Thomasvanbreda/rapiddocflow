@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SmartAnswerPDF — PDF Form Builder</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
@@ -200,6 +201,21 @@
   /* ── MISC INPUTS ── */
   .mapping-select { padding: 8px 11px; border: 1.5px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; transition: border-color 0.2s; }
   .mapping-select:focus { border-color: var(--accent); }
+  /* PDF Preview Panel */
+  .pdf-preview-panel { position: fixed; top: 58px; right: 0; bottom: 0; width: 420px; background: var(--white); border-left: 1.5px solid var(--rule); box-shadow: -8px 0 32px rgba(0,0,0,0.12); z-index: 500; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s ease; }
+  .pdf-preview-panel.open { transform: translateX(0); }
+  .pdf-preview-header { padding: 16px 20px; border-bottom: 1px solid var(--rule); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .pdf-preview-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+  .pdf-preview-sub { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+  .pdf-preview-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--ink3); transition: all 0.15s; }
+  .pdf-preview-close:hover { background: #FEE2E2; color: var(--danger); }
+  .pdf-preview-body { flex: 1; overflow-y: auto; padding: 16px; background: #e5e7eb; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .pdf-preview-page { position: relative; background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+  .pdf-preview-page canvas { display: block; }
+  /* Field highlight overlay */
+  .field-highlight { position: absolute; border: 3px solid var(--accent); border-radius: 3px; background: rgba(79,70,229,0.15); box-shadow: 0 0 0 3px rgba(79,70,229,0.2); pointer-events: none; transition: all 0.15s; animation: pulse-field 1s ease-in-out infinite; }
+  .field-highlight-label { position: absolute; background: var(--accent); color: white; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; top: -20px; left: 0; }
+  @keyframes pulse-field { 0%, 100% { box-shadow: 0 0 0 3px rgba(79,70,229,0.2); } 50% { box-shadow: 0 0 0 6px rgba(79,70,229,0.35); } }
 
   /* ── LOCKED TEMPLATES ── */
   .template-item.locked { opacity: 0.45; }
@@ -452,9 +468,22 @@
     </div>
   </div>
 </div>
+<div class="pdf-preview-panel" id="pdfPreviewPanel">
+  <div class="pdf-preview-header">
+    <div>
+      <div class="pdf-preview-title">PDF Field Preview</div>
+      <div class="pdf-preview-sub">Hover over field names to highlight them</div>
+    </div>
+    <button class="pdf-preview-close" onclick="closePdfPreviewPanel()">×</button>
+  </div>
+  <div class="pdf-preview-body" id="pdfPreviewBody">
+    <div style="text-align:center;color:#9CA3AF;font-size:13px;padding:2rem;">Loading PDF preview...</div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
+if(typeof pdfjsLib !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const SUPABASE_URL = 'https://dvuatrfhvwnmmqxdsaxx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_o80d7JVDWB8N6ng1onp2yg_ZGkLKib0';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -742,7 +771,7 @@ async function confirmDuplicate(){
   closeDupeModal();renderSidebar();selectTemplate(newId);showToast('Duplicated!');
 }
 
-function selectTemplate(id){activeTemplateId=id;renderSidebar();renderEditor();}
+function selectTemplate(id){activeTemplateId=id;previewRendered=false;previewPdfDoc=null;renderSidebar();renderEditor();}
 function getTemplate(){return activeTemplateId?templates[activeTemplateId]:null;}
 
 // Save immediately to memory, debounce cloud save
@@ -814,9 +843,16 @@ function buildBoxEl(box,bi,pdfFields){
       </div>
       <div style="flex:1;min-width:160px;">
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Maps to PDF field</div>
-        <select class="mapping-select" onchange="updateBoxField('${box.id}','pdfField',this.value)">
+        <select class="mapping-select"
+          onchange="updateBoxField('${box.id}','pdfField',this.value);closePdfPreviewPanel()"
+          onfocus="openPdfPreviewPanel()"
+          onblur="setTimeout(closePdfPreviewPanel, 200)"
+          onmouseover="openPdfPreviewPanel()"
+          onkeyup="highlightPdfField(this.value)">
           <option value="">— not mapped —</option>
-          ${pdfFields.map(f=>`<option value="${f}" ${box.pdfField===f?'selected':''}>${f}</option>`).join('')}
+          ${pdfFields.map(f=>`<option value="${f}" ${box.pdfField===f?'selected':''}
+            onmouseover="highlightPdfField('${f}')"
+            >${f}</option>`).join('')}
           <option value="__custom__" ${!pdfFields.includes(box.pdfField)&&box.pdfField?'selected':''}>Custom field name...</option>
         </select>
       </div>
@@ -1269,6 +1305,146 @@ async function dragSegDrop(e, boxId, targetSegId) {
   await saveTemplateNow(tpl);
   rerenderBoxes();
   showToast('Reordered!');
+}
+
+// ── PDF FIELD PREVIEW PANEL ──────────────────────────────────────────────────
+let previewPdfDoc = null;
+let previewFieldPositions = {}; // fieldName -> [{page, x, y, w, h}]
+let previewRendered = false;
+let previewScale = 1.2;
+
+async function openPdfPreviewPanel() {
+  const tpl = getTemplate();
+  if(!tpl || !tpl.pdfB64) return;
+  const panel = document.getElementById('pdfPreviewPanel');
+  panel.classList.add('open');
+  if(!previewRendered || previewPdfDoc === null) {
+    await renderPdfPreview(tpl);
+  }
+}
+
+function closePdfPreviewPanel() {
+  document.getElementById('pdfPreviewPanel').classList.remove('open');
+  clearFieldHighlights();
+}
+
+async function renderPdfPreview(tpl) {
+  const body = document.getElementById('pdfPreviewBody');
+  body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:2rem;">Rendering PDF...</div>';
+  previewFieldPositions = {};
+  previewRendered = false;
+
+  try {
+    // Load with PDF.js for rendering
+    if(typeof pdfjsLib === 'undefined') {
+      body.innerHTML = '<div style="text-align:center;color:#9CA3AF;font-size:13px;padding:2rem;">PDF preview requires the Create PDF Fields tool to be loaded.</div>';
+      return;
+    }
+
+    const arrBuf = base64ToArrayBuffer(tpl.pdfB64);
+    const uint8 = new Uint8Array(arrBuf);
+    previewPdfDoc = await pdfjsLib.getDocument({ data: uint8.slice() }).promise;
+
+    // Also get field positions from pdf-lib
+    const { PDFDocument } = PDFLib;
+    const pdfLibDoc = await PDFDocument.load(uint8.slice(), { ignoreEncryption: true });
+    const form = pdfLibDoc.getForm();
+    const fields = form.getFields();
+    const pages = pdfLibDoc.getPages();
+
+    // Map field names to their page positions
+    fields.forEach(field => {
+      try {
+        const name = field.getName();
+        const widgets = field.acroField.Kids ? field.acroField.Kids() : null;
+        if(widgets) {
+          for(let i = 0; i < widgets.size(); i++) {
+            const widget = widgets.get(i);
+            const rectArr = widget.Rect ? widget.Rect().asArray() : null;
+            const pageRef = widget.P ? widget.P() : null;
+            if(rectArr && pageRef) {
+              // Find page index
+              let pageIdx = 0;
+              for(let p = 0; p < pages.length; p++) {
+                if(pages[p].ref && pages[p].ref === pageRef) { pageIdx = p; break; }
+              }
+              const x = rectArr[0].asNumber();
+              const y = rectArr[1].asNumber();
+              const w = rectArr[2].asNumber() - x;
+              const h = rectArr[3].asNumber() - y;
+              const pageH = pages[pageIdx].getHeight();
+              if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
+              previewFieldPositions[name].push({ page: pageIdx + 1, x, y, w, h, pageH });
+            }
+          }
+        }
+      } catch(e) {}
+    });
+
+    // Render all pages
+    body.innerHTML = '';
+    for(let pageNum = 1; pageNum <= previewPdfDoc.numPages; pageNum++) {
+      const page = await previewPdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: previewScale });
+      const wrapper = document.createElement('div');
+      wrapper.className = 'pdf-preview-page';
+      wrapper.dataset.page = pageNum;
+      wrapper.style.width = viewport.width + 'px';
+      wrapper.style.height = viewport.height + 'px';
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      wrapper.appendChild(canvas);
+      body.appendChild(wrapper);
+    }
+    previewRendered = true;
+  } catch(err) {
+    body.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:13px;padding:2rem;">Could not render PDF preview.</div>';
+    console.error('Preview error:', err);
+  }
+}
+
+function highlightPdfField(fieldName) {
+  clearFieldHighlights();
+  if(!fieldName || fieldName === '__custom__' || fieldName === '') return;
+  const positions = previewFieldPositions[fieldName];
+  if(!positions || !positions.length) return;
+
+  positions.forEach(pos => {
+    const wrapper = document.querySelector('.pdf-preview-page[data-page="' + pos.page + '"]');
+    if(!wrapper) return;
+
+    // Convert PDF coords to screen coords
+    // PDF Y is bottom-up, screen Y is top-down
+    const screenX = pos.x * previewScale;
+    const screenY = (pos.pageH - pos.y - pos.h) * previewScale;
+    const screenW = pos.w * previewScale;
+    const screenH = pos.h * previewScale;
+
+    const highlight = document.createElement('div');
+    highlight.className = 'field-highlight';
+    highlight.style.left = screenX + 'px';
+    highlight.style.top = screenY + 'px';
+    highlight.style.width = screenW + 'px';
+    highlight.style.height = screenH + 'px';
+
+    const label = document.createElement('div');
+    label.className = 'field-highlight-label';
+    label.textContent = fieldName;
+    highlight.appendChild(label);
+    wrapper.appendChild(highlight);
+
+    // Auto scroll to the page with this field
+    wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function clearFieldHighlights() {
+  document.querySelectorAll('.field-highlight').forEach(el => el.remove());
 }
 
 function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
