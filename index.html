@@ -201,6 +201,18 @@
   /* ── MISC INPUTS ── */
   .mapping-select { padding: 8px 11px; border: 1.5px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; transition: border-color 0.2s; }
   .mapping-select:focus { border-color: var(--accent); }
+  /* Custom field select */
+  .custom-field-select { position: relative; flex: 1; }
+  .cfs-trigger { display: flex; align-items: center; justify-content: space-between; padding: 8px 11px; border: 1.5px solid var(--rule); border-radius: var(--radius); font-size: 12px; background: var(--white); color: var(--ink); cursor: pointer; transition: border-color 0.2s; user-select: none; gap: 8px; }
+  .cfs-trigger:hover { border-color: var(--accent); }
+  .cfs-value { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfs-arrow { font-size: 9px; color: var(--ink3); flex-shrink: 0; transition: transform 0.2s; }
+  .cfs-trigger.open .cfs-arrow { transform: rotate(180deg); }
+  .cfs-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--white); border: 1.5px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 600; max-height: 220px; overflow-y: auto; }
+  .cfs-option { padding: 8px 12px; font-size: 12px; color: var(--ink2); cursor: pointer; transition: all 0.12s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfs-option:hover { background: var(--accent-light); color: var(--accent); }
+  .cfs-option.selected { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .cfs-custom { color: var(--ink3); font-style: italic; border-top: 1px solid var(--rule); margin-top: 4px; }
   /* PDF Preview Panel */
   .pdf-preview-panel { position: fixed; top: 58px; right: 0; bottom: 0; width: 440px; background: var(--white); border-left: 1.5px solid var(--rule); box-shadow: -8px 0 32px rgba(0,0,0,0.12); z-index: 500; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.25s ease; }
   .pdf-preview-panel.open { transform: translateX(0); }
@@ -845,16 +857,18 @@ function buildBoxEl(box,bi,pdfFields){
       </div>
       <div style="flex:1;min-width:160px;">
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Maps to PDF field</div>
-        <select class="mapping-select"
-          onchange="updateBoxField('${box.id}','pdfField',this.value);closePdfPreviewPanel()"
-          onclick="openPdfPreviewPanel()"
-          onkeyup="highlightPdfField(this.value)">
-          <option value="">— not mapped —</option>
-          ${pdfFields.map(f=>`<option value="${f}" ${box.pdfField===f?'selected':''}
-            onmouseover="highlightPdfField('${f}')"
-            >${f}</option>`).join('')}
-          <option value="__custom__" ${!pdfFields.includes(box.pdfField)&&box.pdfField?'selected':''}>Custom field name...</option>
-        </select>
+        <div class="custom-field-select" id="cfs-${box.id}">
+          <div class="cfs-trigger" onclick="toggleFieldDropdown('${box.id}','${box.pdfField||''}')"
+            tabindex="0">
+            <span class="cfs-value">${box.pdfField||'— not mapped —'}</span>
+            <span class="cfs-arrow">▼</span>
+          </div>
+          <div class="cfs-dropdown" id="cfsd-${box.id}" style="display:none;">
+            <div class="cfs-option" data-value="" onmouseenter="highlightPdfField('')" onclick="pickField('${box.id}','')" >— not mapped —</div>
+            ${pdfFields.map(f=>`<div class="cfs-option${box.pdfField===f?' selected':''}" data-value="${f}" onmouseenter="highlightPdfField('${f}')" onclick="pickField('${box.id}','${f}')">${f}</div>`).join('')}
+            <div class="cfs-option cfs-custom" data-value="__custom__" onmouseenter="highlightPdfField('')" onclick="pickField('${box.id}','__custom__')">Custom field name...</div>
+          </div>
+        </div>
       </div>
     </div>
     <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Sentence builder</div>
@@ -1307,6 +1321,66 @@ async function dragSegDrop(e, boxId, targetSegId) {
   showToast('Reordered!');
 }
 
+// ── CUSTOM FIELD DROPDOWN ────────────────────────────────────────────────────
+let openDropdownBoxId = null;
+
+function toggleFieldDropdown(boxId, currentValue) {
+  const dropdown = document.getElementById('cfsd-' + boxId);
+  const trigger = dropdown.previousElementSibling;
+  const isOpen = dropdown.style.display !== 'none';
+
+  // Close any other open dropdown
+  if(openDropdownBoxId && openDropdownBoxId !== boxId) {
+    const other = document.getElementById('cfsd-' + openDropdownBoxId);
+    if(other) { other.style.display = 'none'; other.previousElementSibling.classList.remove('open'); }
+  }
+
+  if(isOpen) {
+    dropdown.style.display = 'none';
+    trigger.classList.remove('open');
+    closePdfPreviewPanel();
+    openDropdownBoxId = null;
+  } else {
+    dropdown.style.display = 'block';
+    trigger.classList.add('open');
+    openDropdownBoxId = boxId;
+    openPdfPreviewPanel();
+  }
+}
+
+function pickField(boxId, value) {
+  const dropdown = document.getElementById('cfsd-' + boxId);
+  const trigger = dropdown.previousElementSibling;
+  dropdown.style.display = 'none';
+  trigger.classList.remove('open');
+  openDropdownBoxId = null;
+
+  if(value === '__custom__') {
+    const custom = prompt('Enter custom field name:');
+    if(custom) {
+      updateBoxField(boxId, 'pdfField', custom);
+      trigger.querySelector('.cfs-value').textContent = custom;
+    }
+  } else {
+    updateBoxField(boxId, 'pdfField', value);
+    trigger.querySelector('.cfs-value').textContent = value || '— not mapped —';
+  }
+  closePdfPreviewPanel();
+  clearFieldHighlights();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  if(!e.target.closest('.custom-field-select') && openDropdownBoxId) {
+    const dropdown = document.getElementById('cfsd-' + openDropdownBoxId);
+    const trigger = dropdown ? dropdown.previousElementSibling : null;
+    if(dropdown) dropdown.style.display = 'none';
+    if(trigger) trigger.classList.remove('open');
+    closePdfPreviewPanel();
+    openDropdownBoxId = null;
+  }
+});
+
 // ── PDF FIELD PREVIEW PANEL ──────────────────────────────────────────────────
 let previewPdfDoc = null;
 let previewFieldPositions = {};
@@ -1359,31 +1433,66 @@ async function initPdfPreview(tpl) {
     const form = pdfLibDoc.getForm();
     const pdfPages = pdfLibDoc.getPages();
 
-    form.getFields().forEach(field => {
-      try {
-        const name = field.getName();
-        const widgets = field.acroField.Kids ? field.acroField.Kids() : null;
-        if(!widgets) return;
-        for(let i = 0; i < widgets.size(); i++) {
-          const widget = widgets.get(i);
-          const rectArr = widget.Rect ? widget.Rect().asArray() : null;
-          if(!rectArr) continue;
-          // Find which page this widget is on
-          let pageIdx = 0;
-          const widgetRef = widget.P ? widget.P() : null;
-          for(let p = 0; p < pdfPages.length; p++) {
-            if(widgetRef && pdfPages[p].ref === widgetRef) { pageIdx = p; break; }
-          }
-          const x = rectArr[0].asNumber();
-          const y = rectArr[1].asNumber();
-          const w = rectArr[2].asNumber() - x;
-          const h = rectArr[3].asNumber() - y;
-          const pageH = pdfPages[pageIdx].getHeight();
-          if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
-          previewFieldPositions[name].push({ page: pageIdx + 1, x, y, w, h, pageH });
+    // Get all acroform fields and their positions
+    const acroForm = pdfLibDoc.catalog.lookupMaybe(PDFLib.PDFName.of('AcroForm'), PDFLib.PDFDict);
+    if(acroForm) {
+      const fieldsArr = acroForm.lookupMaybe(PDFLib.PDFName.of('Fields'), PDFLib.PDFArray);
+      if(fieldsArr) {
+        for(let fi = 0; fi < fieldsArr.size(); fi++) {
+          try {
+            const fieldRef = fieldsArr.get(fi);
+            const fieldDict = pdfLibDoc.context.lookup(fieldRef, PDFLib.PDFDict);
+            if(!fieldDict) continue;
+            const nameObj = fieldDict.lookupMaybe(PDFLib.PDFName.of('T'), PDFLib.PDFString) ||
+                           fieldDict.lookupMaybe(PDFLib.PDFName.of('T'), PDFLib.PDFHexString);
+            if(!nameObj) continue;
+            const name = nameObj.decodeText ? nameObj.decodeText() : nameObj.asString();
+            const rectObj = fieldDict.lookupMaybe(PDFLib.PDFName.of('Rect'), PDFLib.PDFArray);
+            const pageRef = fieldDict.lookupMaybe(PDFLib.PDFName.of('P'), PDFLib.PDFRef);
+            if(!rectObj) continue;
+            const x = rectObj.get(0).asNumber();
+            const y = rectObj.get(1).asNumber();
+            const x2 = rectObj.get(2).asNumber();
+            const y2 = rectObj.get(3).asNumber();
+            const w = x2 - x;
+            const h = y2 - y;
+            // Find page index
+            let pageIdx = 0;
+            if(pageRef) {
+              for(let p = 0; p < pdfPages.length; p++) {
+                if(pdfPages[p].ref.objectNumber === pageRef.objectNumber) { pageIdx = p; break; }
+              }
+            }
+            const pageH = pdfPages[pageIdx].getHeight();
+            if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
+            previewFieldPositions[name].push({ page: pageIdx + 1, x, y, w, h, pageH });
+          } catch(e) {}
         }
-      } catch(e) {}
-    });
+      }
+    }
+    // Also try standard approach as fallback
+    if(Object.keys(previewFieldPositions).length === 0) {
+      form.getFields().forEach(field => {
+        try {
+          const name = field.getName();
+          const widgets = field.acroField.Kids ? field.acroField.Kids() : null;
+          if(!widgets) return;
+          for(let i = 0; i < widgets.size(); i++) {
+            const widget = widgets.get(i);
+            const rectArr = widget.Rect ? widget.Rect().asArray() : null;
+            if(!rectArr) continue;
+            let pageIdx = 0;
+            const x = rectArr[0].asNumber();
+            const y = rectArr[1].asNumber();
+            const w = rectArr[2].asNumber() - x;
+            const h = rectArr[3].asNumber() - y;
+            const pageH = pdfPages[pageIdx].getHeight();
+            if(!previewFieldPositions[name]) previewFieldPositions[name] = [];
+            previewFieldPositions[name].push({ page: pageIdx + 1, x, y, w, h, pageH });
+          }
+        } catch(e) {}
+      });
+    }
 
     // Pre-render all pages to canvases
     for(let pageNum = 1; pageNum <= previewTotalPages; pageNum++) {
