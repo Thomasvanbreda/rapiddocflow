@@ -666,12 +666,9 @@ async function downloadPDF() {
         ),
         backgroundColor: PDFLib.rgb(0.98, 0.98, 1),
       });
-      // Auto font size — shrinks to fit, minimum 8pt
-      // Below 8pt text wraps vertically (scrollable) never horizontally
-      textField.setFontSize(0);   // 0 = auto-size down to minimum
-      textField.enableMultiline(); // vertical overflow only, never horizontal
-      // Set max font to something readable, min enforced by PDF viewer at 8pt
-      textField.acroField.setDefaultAppearance('/Helvetica 0 Tf 0 g');
+      // Fixed 9pt font — readable minimum, text wraps vertically never horizontally
+      textField.enableMultiline();
+      textField.setFontSize(9);
     });
 
     const pdfBytesOut = await pdfLibDoc.save();
