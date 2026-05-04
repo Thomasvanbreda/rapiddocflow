@@ -1101,7 +1101,7 @@ async function generatePDF(){
         }
         return val||'';
       }).join(' ').trim();
-      try{form.getTextField(box.pdfField).setText(assembled);}catch{try{form.getDropdown(box.pdfField).select(assembled);}catch{}}
+      try{ const tf=form.getTextField(box.pdfField); tf.setText(assembled); tf.setFontSize(0); tf.enableMultiline(); }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
     form.flatten();const pdfBytes=await pdfDoc.save();
     const blob=new Blob([pdfBytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);
