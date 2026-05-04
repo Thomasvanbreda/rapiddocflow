@@ -1109,11 +1109,17 @@ async function generatePDF(){
         const tf=form.getTextField(box.pdfField);
         tf.enableMultiline();
         tf.setFontSize(9);
-        // Set text first, then update appearance so it renders visibly without clicking
         tf.setText(assembled);
-        tf.updateAppearances(helvetica);
-        // Remove the NeedAppearances flag on this field so Adobe renders it immediately
-        tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
+        // Force top alignment so first part of text is always visible
+        tf.acroField.dict.set(
+          PDFLib.PDFName.of("Q"),
+          PDFLib.PDFNumber.of(0)
+        );
+        // Set scroll position to top
+        tf.acroField.dict.set(
+          PDFLib.PDFName.of("TI"),
+          PDFLib.PDFNumber.of(0)
+        );
         tf.updateAppearances(helvetica);
       }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
