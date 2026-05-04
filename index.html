@@ -134,6 +134,11 @@
   .date-format-select:focus { border-color: var(--accent); }
   .seg-del { color: var(--ink3); cursor: pointer; font-size: 18px; padding: 4px; opacity: 0.4; transition: all 0.15s; flex-shrink: 0; margin-top: 2px; border-radius: 6px; }
   .seg-del:hover { opacity: 1; color: var(--danger); background: #FEE2E2; }
+  .seg-drag { color: var(--ink3); cursor: grab; font-size: 18px; padding: 4px 6px; opacity: 0.35; transition: all 0.15s; flex-shrink: 0; margin-top: 2px; border-radius: 6px; user-select: none; line-height: 1; }
+  .seg-drag:hover { opacity: 0.8; color: var(--ink); background: var(--rule); }
+  .seg-drag:active { cursor: grabbing; }
+  .segment.dragging { opacity: 0.35; background: var(--accent-light); border-radius: 8px; }
+  .segment.drag-over { outline: 2px solid var(--accent); border-radius: 8px; }
   .add-seg-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn-add-seg { padding: 7px 15px; border-radius: 50px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid; transition: all 0.18s; }
   .btn-chain { background: #F0F9FF; color: #0369A1; border-color: #BAE6FD; }
@@ -828,7 +833,7 @@ function buildBoxEl(box,bi,pdfFields){
 }
 
 function buildSegmentHTML(boxId,seg,si){
-  if(seg.type==='chain') return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-chain">Chain ${si+1} — fixed text</span><input class="chain-input" value="${escHtml(seg.text||'')}" placeholder="Type fixed text here..." oninput="updateSegField('${boxId}','${seg.id}','text',this.value)"/></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
+  if(seg.type==='chain') return `<div class="segment" id="seg-${seg.id}" draggable="true" ondragstart="dragSegStart(event,'${boxId}','${seg.id}')" ondragover="dragSegOver(event)" ondragleave="dragSegLeave(event)" ondrop="dragSegDrop(event,'${boxId}','${seg.id}')"><span class="seg-drag" title="Drag to reorder">⋮⋮</span><div class="seg-content"><span class="seg-type-badge badge-chain">Chain ${si+1} — fixed text</span><input class="chain-input" value="${escHtml(seg.text||'')}" placeholder="Type fixed text here..." oninput="updateSegField('${boxId}','${seg.id}','text',this.value)"/></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
 
   // Sub-box types including new: checkbox
   const typeOpts=['text','dropdown','number','date','checkbox'].map(t=>
@@ -857,7 +862,7 @@ function buildSegmentHTML(boxId,seg,si){
     <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Join selected items with: <input style="padding:3px 6px;border:1px solid var(--rule);border-radius:4px;font-size:11px;width:80px;" value="${escHtml(seg.joinWith||', ')}" oninput="updateSegField('${boxId}','${seg.id}','joinWith',this.value)" placeholder=", "/></div>`;
   }
 
-  return `<div class="segment" id="seg-${seg.id}"><div class="seg-content"><span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${extraConfig}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
+  return `<div class="segment" id="seg-${seg.id}" draggable="true" ondragstart="dragSegStart(event,'${boxId}','${seg.id}')" ondragover="dragSegOver(event)" ondragleave="dragSegLeave(event)" ondrop="dragSegDrop(event,'${boxId}','${seg.id}')"><span class="seg-drag" title="Drag to reorder">⋮⋮</span><div class="seg-content"><span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${extraConfig}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
 }
 
 // ── CHECKBOX OPTION MANAGEMENT ──────────────────────────────────────────────
@@ -1221,6 +1226,49 @@ async function doChangePassword(){
   if(error){msg.textContent=error.message;msg.style.color='var(--danger)';return;}
   msg.textContent='Password updated successfully!';msg.style.color='#065F46';
   setTimeout(()=>closeChangePasswordModal(),1500);
+}
+
+// ── SEGMENT DRAG TO REORDER ──────────────────────────────────────────────────
+let dragSegId = null;
+let dragBoxId = null;
+
+function dragSegStart(e, boxId, segId) {
+  dragSegId = segId;
+  dragBoxId = boxId;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => {
+    const el = document.getElementById('seg-' + segId);
+    if(el) el.classList.add('dragging');
+  }, 0);
+}
+
+function dragSegOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function dragSegLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function dragSegDrop(e, boxId, targetSegId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(!dragSegId || dragSegId === targetSegId || dragBoxId !== boxId) return;
+  const tpl = getTemplate();
+  const box = tpl.boxes.find(b => b.id === boxId);
+  if(!box) return;
+  const fromIdx = box.segments.findIndex(s => s.id === dragSegId);
+  const toIdx = box.segments.findIndex(s => s.id === targetSegId);
+  if(fromIdx === -1 || toIdx === -1) return;
+  const [moved] = box.segments.splice(fromIdx, 1);
+  box.segments.splice(toIdx, 0, moved);
+  dragSegId = null;
+  dragBoxId = null;
+  await saveTemplateNow(tpl);
+  rerenderBoxes();
+  showToast('Reordered!');
 }
 
 function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
