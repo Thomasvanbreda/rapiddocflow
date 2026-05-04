@@ -1460,21 +1460,22 @@ async function initPdfPreview(tpl) {
       const page = await previewPdfDoc.getPage(pageNum);
       const viewport0 = page.getViewport({ scale: 1 });
       const targetW = 400;
-      const scale = (targetW / viewport0.width);
+      // Multiply scale by DPR so the PDF renders at full resolution
+      const scale = (targetW / viewport0.width) * dpr;
       const viewport = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
-      // Use DPR for crisp rendering
-      canvas.width = Math.floor(viewport.width * dpr);
-      canvas.height = Math.floor(viewport.height * dpr);
-      canvas.style.width = Math.floor(viewport.width) + 'px';
-      canvas.style.height = Math.floor(viewport.height) + 'px';
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      // CSS size is the non-DPR size so it displays at correct physical size
+      const cssW = Math.floor(viewport.width / dpr);
+      const cssH = Math.floor(viewport.height / dpr);
+      canvas.style.width = cssW + 'px';
+      canvas.style.height = cssH + 'px';
       const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
       ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, viewport.width, viewport.height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvasContext: ctx, viewport }).promise;
-      previewRenderedPages[pageNum] = { canvas, scale, viewport, dpr, cssW: Math.floor(viewport.width), cssH: Math.floor(viewport.height) };
-      console.log('Rendered page', pageNum, 'scale:', scale, 'fields:', JSON.stringify(previewFieldPositions));
+      previewRenderedPages[pageNum] = { canvas, scale, scaleBase: scale/dpr, viewport, dpr, cssW, cssH };
     }
 
     previewRendered = true;
@@ -1502,16 +1503,11 @@ function showPreviewPage(pageNum) {
   wrapper.style.width = pageData.cssW + 'px';
   wrapper.style.height = pageData.cssH + 'px';
 
-  // Draw the pre-rendered canvas onto a new canvas
-  const newCanvas = document.createElement('canvas');
-  newCanvas.width = pageData.canvas.width;
-  newCanvas.height = pageData.canvas.height;
-  newCanvas.style.width = pageData.cssW + 'px';
-  newCanvas.style.height = pageData.cssH + 'px';
-  newCanvas.style.display = 'block';
-  const ctx = newCanvas.getContext('2d');
-  ctx.drawImage(pageData.canvas, 0, 0);
-  wrapper.appendChild(newCanvas);
+  // Reuse the original canvas directly — no copy needed
+  pageData.canvas.style.width = pageData.cssW + 'px';
+  pageData.canvas.style.height = pageData.cssH + 'px';
+  pageData.canvas.style.display = 'block';
+  wrapper.appendChild(pageData.canvas);
   body.appendChild(wrapper);
 }
 
@@ -1531,13 +1527,12 @@ function highlightPdfField(fieldName) {
   const pageData = previewRenderedPages[pos.page];
   if(!pageData) return;
 
-  const scale = pageData.scale;
-  // Use CSS dimensions (not DPR dimensions) for overlay positioning
+  // Use base scale (without DPR) for CSS overlay positioning
+  const scale = pageData.scaleBase;
   const screenX = pos.x * scale;
   const screenY = (pos.pageH - pos.y - pos.h) * scale;
   const screenW = Math.max(pos.w * scale, 20);
   const screenH = Math.max(pos.h * scale, 12);
-  console.log('Highlighting field:', fieldName, 'pos:', pos, 'screen:', screenX, screenY, screenW, screenH);
 
   const wrapper = document.querySelector('.pdf-preview-page[data-page="' + pos.page + '"]');
   if(!wrapper) return;
