@@ -254,6 +254,8 @@ body { font-family: 'Outfit', sans-serif; background: var(--surface); color: var
 <script>
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// Fallback if worker fails
+window.addEventListener('error', function(e) { if(e.message && e.message.includes('worker')) { pdfjsLib.GlobalWorkerOptions.workerSrc = ''; } });
 
 // State
 let pdfDoc = null;
@@ -288,8 +290,10 @@ async function loadPDF(file) {
   showToast('Loading PDF...');
   const reader = new FileReader();
   reader.onload = async ev => {
-    pdfBytes = new Uint8Array(ev.target.result);
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+    const arrayBuffer = ev.target.result;
+    pdfBytes = arrayBuffer; // Store raw ArrayBuffer for pdf-lib
+    const uint8 = new Uint8Array(arrayBuffer);
+    const loadingTask = pdfjsLib.getDocument({ data: uint8.slice() });
     pdfDoc = await loadingTask.promise;
     totalPages = pdfDoc.numPages;
     currentPage = 1;
@@ -332,7 +336,19 @@ async function renderAllPages() {
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    try {
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    } catch(renderErr) {
+      console.error('Page render error:', renderErr);
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#6B7280';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Page ' + pageNum, canvas.width/2, canvas.height/2);
+    }
     wrapper.appendChild(canvas);
 
     // Drawing layer
@@ -627,7 +643,7 @@ async function downloadPDF() {
 
   try {
     const { PDFDocument } = PDFLib;
-    const pdfLibDoc = await PDFDocument.load(pdfBytes);
+    const pdfLibDoc = await PDFDocument.load(new Uint8Array(pdfBytes));
     const form = pdfLibDoc.getForm();
     const pages = pdfLibDoc.getPages();
 
