@@ -1109,12 +1109,17 @@ async function generatePDF(){
         const tf=form.getTextField(box.pdfField);
         tf.enableMultiline();
         tf.setFontSize(9);
-        tf.updateAppearances(helvetica);
+        // Set text first, then update appearance so it renders visibly without clicking
         tf.setText(assembled);
+        tf.updateAppearances(helvetica);
+        // Remove the NeedAppearances flag on this field so Adobe renders it immediately
+        tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
         tf.updateAppearances(helvetica);
       }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
-    // Update all appearances with embedded font — do NOT flatten so PDF stays editable in Adobe
+    // Remove global NeedAppearances flag so Adobe renders all fields without clicking
+    const acroForm = pdfDoc.catalog.lookupMaybe(PDFLib.PDFName.of("AcroForm"), PDFLib.PDFDict);
+    if(acroForm) acroForm.delete(PDFLib.PDFName.of("NeedAppearances"));
     form.updateFieldAppearances(helvetica);
     const pdfBytes=await pdfDoc.save();
     const blob=new Blob([pdfBytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);
