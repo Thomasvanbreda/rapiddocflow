@@ -996,7 +996,7 @@ function buildSegmentHTML(boxId,seg,si){
       return `<div class="tabular-col-row" id="tabcol-${seg.id}-${ci}">
         <input class="tabular-col-name" value="${escHtml(col.name||'')}" placeholder="Column name..." oninput="updateTabularCol('${boxId}','${seg.id}',${ci},'name',this.value)"/>
         <select class="tabular-col-type" onchange="updateTabularCol('${boxId}','${seg.id}',${ci},'type',this.value);rerenderBoxes()">
-          ${['text','dropdown','number','date'].map(t=>`<option value="${t}" ${col.type===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number',date:'Date'}[t]}</option>`).join('')}
+          ${['text','dropdown','number','date','checkbox'].map(t=>`<option value="${t}" ${col.type===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number',date:'Date',checkbox:'Checkboxes'}[t]}</option>`).join('')}
         </select>
         ${colExtra}
         <span class="tabular-col-del" onclick="deleteTabularCol('${boxId}','${seg.id}',${ci})">×</span>
@@ -1154,7 +1154,7 @@ function openFillScreen(){
   if(dupes.length){
     if(!confirm(`⚠️ Warning: The following PDF fields are mapped to more than one box:\n\n${dupes.map(d=>`"${d}"`).join('\n')}\n\nOnly the last box mapped to each field will write to the PDF. Do you want to continue anyway?`)) return;
   }
-  fillAnswers={}; showScreen('fill');
+  fillAnswers={}; const tabularSegsToRender=[]; showScreen('fill');
   document.getElementById('fill-title').textContent=tpl.name;
   const c=document.getElementById('fill-boxes'); c.innerHTML='';
   tpl.boxes.forEach((box,bi)=>{
@@ -1182,20 +1182,21 @@ function openFillScreen(){
             </div>`).join('');
           inputHTML=`<div class="checkbox-fill-list">${checkItems}</div>`;
         } else if(seg.inputType==='tabular'){
-          // Tabular gets its own container — not a simple inputHTML
+          // Tabular gets its own container
           const cols=seg.tabularColumns||[];
+          // Only init if no data yet — preserve existing answers
           if(!fillAnswers[box.id]) fillAnswers[box.id]={};
-          if(!fillAnswers[box.id][seg.id]) fillAnswers[box.id][seg.id]=[[...cols.map(()=>'')]];
+          if(!fillAnswers[box.id][seg.id]||!fillAnswers[box.id][seg.id].length){
+            fillAnswers[box.id][seg.id]=[cols.map(()=>'')];
+          }
           const headerCells=cols.map(col=>`<div class="tabular-header-cell">${escHtml(col.name||'Column')}</div>`).join('');
-          inputHTML=`<div class="tabular-fill-wrap" id="tabwrap-${box.id}-${seg.id}">
-            <div class="tabular-header-row">${headerCells}</div>
-            <div class="tabular-data-rows" id="tabrows-${box.id}-${seg.id}"></div>
-            <button class="btn-add-row" onclick="addTabularRow('${box.id}','${seg.id}')">+ Add row</button>
-          </div>`;
-          segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Table')}</div>${inputHTML}</div>`;
-          // render rows after DOM insertion via setTimeout
-          setTimeout(()=>renderTabularRows('${box.id}','${seg.id}',seg),0);
-          return; // skip the normal segsHTML+= below
+          // Capture current box.id and seg for closure
+          const _boxId=box.id; const _seg=JSON.parse(JSON.stringify(seg));
+          segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Table')}</div><div class="tabular-fill-wrap" id="tabwrap-${box.id}-${seg.id}"><div class="tabular-header-row"><div class="tabular-row-num"></div>${headerCells}</div><div class="tabular-data-rows" id="tabrows-${box.id}-${seg.id}"></div><button class="btn-add-row" onclick="addTabularRow('${box.id}','${seg.id}')">+ Add row</button></div></div>`;
+          // Store seg reference for post-render
+          tabularSegsToRender.push({boxId:box.id, segId:seg.id, seg:JSON.parse(JSON.stringify(seg))});
+          // skip normal segsHTML+= below — already added above
+          return;
         } else {
           inputHTML=`<input type="text" class="fill-input" id="${inputId}" placeholder="Type here..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
         }
@@ -1205,6 +1206,8 @@ function openFillScreen(){
     div.innerHTML=`<div class="fill-box-title">Box ${bi+1}: ${escHtml(box.name||'Unnamed')}</div><div class="fill-box-field">→ PDF field: <em>${escHtml(box.pdfField||'not mapped')}</em></div><div class="fill-segments">${segsHTML}</div><div class="fill-preview" id="fp-${box.id}">${buildFilledSentence(box)}</div>`;
     c.appendChild(div);
   });
+  // Now render all tabular rows (after DOM is ready)
+  tabularSegsToRender.forEach(({boxId,segId,seg})=>renderTabularRows(boxId,segId,seg));
 }
 
 function closeFillScreen(){showScreen('app');}
@@ -1250,43 +1253,76 @@ function renderTabularRows(boxId, segId, seg){
   const container=document.getElementById('tabrows-'+boxId+'-'+segId);
   if(!container) return;
   const cols=seg.tabularColumns||[];
-  const rows=fillAnswers[boxId]&&fillAnswers[boxId][segId]||[[]];
+  // Always read from fillAnswers — never fall back to [[]] which would wipe data
+  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+  if(!fillAnswers[boxId][segId]||!fillAnswers[boxId][segId].length){
+    fillAnswers[boxId][segId]=[cols.map(()=>'')];
+  }
+  const rows=fillAnswers[boxId][segId];
+  const segJson=JSON.stringify(seg).replace(/'/g,"\'");
   container.innerHTML='';
   rows.forEach((row,ri)=>{
     const rowEl=document.createElement('div');
     rowEl.className='tabular-data-row';
     rowEl.id='tabrow-'+boxId+'-'+segId+'-'+ri;
-    let cells=`<div class="tabular-row-num">${ri+1}</div>`;
+    let cells=`<div class="tabular-row-num">${ri+1}.</div>`;
     cols.forEach((col,ci)=>{
       let cellInput='';
-      const val=row[ci]||'';
+      const val=row[ci]!==undefined?row[ci]:'';
       if(col.type==='dropdown'){
         const opts=(col.options||[]).map(o=>`<option value="${escHtml(o)}" ${val===o?'selected':''}>${escHtml(o)}</option>`).join('');
-        cellInput=`<select class="fill-input" onchange="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"><option value="">Select...</option>${opts}</select>`;
+        cellInput=`<select class="fill-input" onchange="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)">
+<option value="">Select...</option>${opts}</select>`;
+      } else if(col.type==='checkbox'){
+        const opts=(col.options||[]).map((o,oi)=>{
+          const checked=Array.isArray(val)&&val.includes(oi);
+          return `<div class="checkbox-fill-item ${checked?'checked':''}" style="padding:6px 10px;" onclick="recordTabularCheckbox('${boxId}','${segId}',${ri},${ci},${oi},this)"><input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();recordTabularCheckbox('${boxId}','${segId}',${ri},${ci},${oi},this.closest('.checkbox-fill-item'))"/><span style="font-size:13px;">${escHtml(o)}</span></div>`;
+        }).join('');
+        cellInput=`<div class="checkbox-fill-list">${opts}</div>`;
       } else if(col.type==='number'){
-        cellInput=`<input type="number" class="fill-input" value="${escHtml(val)}" placeholder="0" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"/>`;
+        cellInput=`<input type="number" class="fill-input" value="${escHtml(String(val))}" placeholder="0" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
       } else if(col.type==='date'){
-        cellInput=`<input type="date" class="fill-input" value="${escHtml(val)}" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"/>`;
+        cellInput=`<input type="date" class="fill-input" value="${escHtml(String(val))}" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
       } else {
-        cellInput=`<input type="text" class="fill-input" value="${escHtml(val)}" placeholder="..." oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"/>`;
+        cellInput=`<input type="text" class="fill-input" value="${escHtml(String(val))}" placeholder="..." oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
       }
       cells+=`<div class="tabular-cell">${cellInput}</div>`;
     });
-    if(rows.length>1){
-      cells+=`<button class="btn-remove-row" onclick="removeTabularRow('${boxId}','${segId}',${ri},${JSON.stringify(seg)})" title="Remove row">×</button>`;
-    }
+    // Always show remove button — grayed out if only one row
+    const rmStyle=rows.length<=1?'opacity:0.25;cursor:not-allowed;':'';
+    cells+=`<button class="btn-remove-row" style="${rmStyle}" onclick="if(${rows.length}>1)removeTabularRow('${boxId}','${segId}',${ri})" title="Remove row">×</button>`;
     rowEl.innerHTML=cells;
     container.appendChild(rowEl);
   });
   updateTabularPreview(boxId,segId,seg);
 }
 
-function recordTabularCell(boxId,segId,rowIdx,colIdx,value,seg){
+function recordTabularCell(boxId,segId,rowIdx,colIdx,value){
   if(!fillAnswers[boxId]) fillAnswers[boxId]={};
   if(!fillAnswers[boxId][segId]) fillAnswers[boxId][segId]=[];
   while(fillAnswers[boxId][segId].length<=rowIdx) fillAnswers[boxId][segId].push([]);
+  if(!fillAnswers[boxId][segId][rowIdx]) fillAnswers[boxId][segId][rowIdx]=[];
   fillAnswers[boxId][segId][rowIdx][colIdx]=value;
-  updateTabularPreview(boxId,segId,seg);
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
+  const seg=box&&box.segments.find(s=>s.id===segId);
+  if(seg) updateTabularPreview(boxId,segId,seg);
+}
+
+function recordTabularCheckbox(boxId,segId,rowIdx,colIdx,optIdx,itemEl){
+  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+  if(!fillAnswers[boxId][segId]) fillAnswers[boxId][segId]=[];
+  while(fillAnswers[boxId][segId].length<=rowIdx) fillAnswers[boxId][segId].push([]);
+  if(!fillAnswers[boxId][segId][rowIdx]) fillAnswers[boxId][segId][rowIdx]=[];
+  if(!Array.isArray(fillAnswers[boxId][segId][rowIdx][colIdx])) fillAnswers[boxId][segId][rowIdx][colIdx]=[];
+  const arr=fillAnswers[boxId][segId][rowIdx][colIdx];
+  const pos=arr.indexOf(optIdx);
+  if(pos===-1) arr.push(optIdx); else arr.splice(pos,1);
+  itemEl.classList.toggle('checked',arr.includes(optIdx));
+  const cb=itemEl.querySelector('input[type=checkbox]');
+  if(cb) cb.checked=arr.includes(optIdx);
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
+  const seg=box&&box.segments.find(s=>s.id===segId);
+  if(seg) updateTabularPreview(boxId,segId,seg);
 }
 
 function addTabularRow(boxId,segId){
@@ -1298,8 +1334,10 @@ function addTabularRow(boxId,segId){
   renderTabularRows(boxId,segId,seg);
 }
 
-function removeTabularRow(boxId,segId,rowIdx,seg){
+function removeTabularRow(boxId,segId,rowIdx){
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
   if(!fillAnswers[boxId]||!fillAnswers[boxId][segId]) return;
+  if(fillAnswers[boxId][segId].length<=1) return; // can't remove last row
   fillAnswers[boxId][segId].splice(rowIdx,1);
   renderTabularRows(boxId,segId,seg);
 }
@@ -1338,7 +1376,16 @@ function buildFilledSentence(box){
       const cols=seg.tabularColumns||[];
       const sep=seg.tabularSeparator||' / ';
       if(!rows.length||!cols.length) return `<span style="color:var(--ink3);font-style:italic;">[${escHtml(seg.label||'Table')}]</span>`;
-      const lines=rows.map((row,ri)=>`${ri+1}. ${cols.map((col,ci)=>row[ci]||`[${col.name}]`).join(sep)}`);
+      const lines=rows.map((row,ri)=>{
+        const cells=cols.map((col,ci)=>{
+          const cv=row&&row[ci]!==undefined?row[ci]:'';
+          if(col.type==='checkbox'&&Array.isArray(cv)){
+            return cv.map(idx=>(col.options||[])[idx]||'').filter(Boolean).join(', ')||`[${col.name||'Col'}]`;
+          }
+          return cv||`[${col.name||'Col'}]`;
+        });
+        return `${ri+1}. ${cells.join(sep)}`;
+      });
       return `<span class="sp" style="display:block;white-space:pre-line;">${escHtml(lines.join('\n'))}</span>`;
     }
     if(seg.inputType==='checkbox'){
@@ -1369,7 +1416,16 @@ async function generatePDF(){
           const rows=Array.isArray(val)?val:[];
           const cols=seg.tabularColumns||[];
           const sep=seg.tabularSeparator||' / ';
-          return rows.map((row,ri)=>`${ri+1}. ${cols.map((col,ci)=>row[ci]||'').join(sep)}`).join('\n');
+          return rows.map((row,ri)=>{
+            const cells=cols.map((col,ci)=>{
+              const cv=row&&row[ci]!==undefined?row[ci]:'';
+              if(col.type==='checkbox'&&Array.isArray(cv)){
+                return cv.map(idx=>(col.options||[])[idx]||'').filter(Boolean).join(', ');
+              }
+              return String(cv||'');
+            });
+            return `${ri+1}. ${cells.join(sep)}`;
+          }).join('\n');
         }
         if(seg.inputType==='checkbox'){
           const selectedIdxs=Array.isArray(val)?val:[];
