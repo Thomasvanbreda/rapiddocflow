@@ -986,7 +986,6 @@ function buildSegmentHTML(boxId,seg,si){
       <button class="btn-add-opt" onclick="addCheckboxOpt('${boxId}','${seg.id}')">+ Add option</button>
     </div>
     <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Join selected items with: <input style="padding:3px 6px;border:1px solid var(--rule);border-radius:4px;font-size:11px;width:80px;" value="${escHtml(seg.joinWith||', ')}" oninput="updateSegField('${boxId}','${seg.id}','joinWith',this.value)" placeholder=", "/></div>`;
-  }
   } else if(seg.inputType==='tabular'){
     const cols=seg.tabularColumns||[];
     const colRows=cols.map((col,ci)=>{
@@ -1013,6 +1012,7 @@ function buildSegmentHTML(boxId,seg,si){
       <div class="tabular-cols-list" id="tabcols-${seg.id}">${colRows}</div>
       <button class="btn-add-col" onclick="addTabularCol('${boxId}','${seg.id}')">+ Add column</button>
     </div>`;
+  }
 
 
   const isTabular = seg.inputType==='tabular';
