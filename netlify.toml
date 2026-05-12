@@ -1,12 +1,9 @@
 [build]
   functions = "netlify/functions"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
 [functions]
   node_bundler = "esbuild"
 
-# Run every day at 06:00 UTC — drops users whose payment grace period has expired
+# Runs daily at 06:00 UTC — drops users whose payment grace period has expired
 [functions."expire-failed-payments"]
   schedule = "0 6 * * *"
