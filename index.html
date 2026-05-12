@@ -962,8 +962,8 @@ function buildSegmentHTML(boxId,seg,si){
   if(seg.type==='chain') return `<div class="segment" id="seg-${seg.id}" draggable="true" ondragstart="dragSegStart(event,'${boxId}','${seg.id}')" ondragover="dragSegOver(event)" ondragleave="dragSegLeave(event)" ondrop="dragSegDrop(event,'${boxId}','${seg.id}')"><span class="seg-drag" title="Drag to reorder">⋮⋮</span><div class="seg-content"><span class="seg-type-badge badge-chain">Chain ${si+1} — fixed text</span><input class="chain-input" value="${escHtml(seg.text||'')}" placeholder="Type fixed text here..." oninput="updateSegField('${boxId}','${seg.id}','text',this.value)"/></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
 
   // Sub-box types including new: checkbox
-  const typeOpts=['text','dropdown','number','date','checkbox'].map(t=>
-    `<option value="${t}" ${seg.inputType===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number / currency',date:'Date',checkbox:'Checkboxes'}[t]}</option>`
+  const typeOpts=['text','dropdown','number','date','checkbox','tabular'].map(t=>
+    `<option value="${t}" ${seg.inputType===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number / currency',date:'Date',checkbox:'Checkboxes',tabular:'Tabular Response Format'}[t]}</option>`
   ).join('');
 
   let extraConfig='';
@@ -987,8 +987,38 @@ function buildSegmentHTML(boxId,seg,si){
     </div>
     <div style="font-size:11px;color:var(--ink3);margin-top:4px;">Join selected items with: <input style="padding:3px 6px;border:1px solid var(--rule);border-radius:4px;font-size:11px;width:80px;" value="${escHtml(seg.joinWith||', ')}" oninput="updateSegField('${boxId}','${seg.id}','joinWith',this.value)" placeholder=", "/></div>`;
   }
+  } else if(seg.inputType==='tabular'){
+    const cols=seg.tabularColumns||[];
+    const colRows=cols.map((col,ci)=>{
+      let colExtra='';
+      if(col.type==='dropdown'){
+        colExtra=`<textarea class="tabular-col-opts" rows="2" placeholder="Option 1&#10;Option 2" oninput="updateTabularCol('${boxId}','${seg.id}',${ci},'options',this.value)">${escHtml((col.options||[]).join('\n'))}</textarea>`;
+      }
+      return `<div class="tabular-col-row" id="tabcol-${seg.id}-${ci}">
+        <input class="tabular-col-name" value="${escHtml(col.name||'')}" placeholder="Column name..." oninput="updateTabularCol('${boxId}','${seg.id}',${ci},'name',this.value)"/>
+        <select class="tabular-col-type" onchange="updateTabularCol('${boxId}','${seg.id}',${ci},'type',this.value);rerenderBoxes()">
+          ${['text','dropdown','number','date'].map(t=>`<option value="${t}" ${col.type===t?'selected':''}>${{text:'Free text',dropdown:'Dropdown',number:'Number',date:'Date'}[t]}</option>`).join('')}
+        </select>
+        ${colExtra}
+        <span class="tabular-col-del" onclick="deleteTabularCol('${boxId}','${seg.id}',${ci})">×</span>
+      </div>`;
+    }).join('');
+    extraConfig=`<div class="tabular-config">
+      <div class="tabular-separator-row">
+        <span style="font-size:12px;color:var(--ink3);">Column separator:</span>
+        <input class="tabular-separator-input" value="${escHtml(seg.tabularSeparator||' / ')}" placeholder=" / " oninput="updateSegField('${boxId}','${seg.id}','tabularSeparator',this.value)"/>
+        <span style="font-size:11px;color:var(--ink3);">Rows are numbered automatically</span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Columns</div>
+      <div class="tabular-cols-list" id="tabcols-${seg.id}">${colRows}</div>
+      <button class="btn-add-col" onclick="addTabularCol('${boxId}','${seg.id}')">+ Add column</button>
+    </div>`;
 
-  return `<div class="segment" id="seg-${seg.id}" draggable="true" ondragstart="dragSegStart(event,'${boxId}','${seg.id}')" ondragover="dragSegOver(event)" ondragleave="dragSegLeave(event)" ondrop="dragSegDrop(event,'${boxId}','${seg.id}')"><span class="seg-drag" title="Drag to reorder">⋮⋮</span><div class="seg-content"><span class="seg-type-badge badge-sub">Sub-box ${si+1} — variable</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${extraConfig}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
+
+  const isTabular = seg.inputType==='tabular';
+  const badgeClass = isTabular ? 'badge-tabular' : 'badge-sub';
+  const badgeLabel = isTabular ? `Tabular — ${si+1}` : `Sub-box ${si+1} — variable`;
+  return `<div class="segment" id="seg-${seg.id}" draggable="true" ondragstart="dragSegStart(event,'${boxId}','${seg.id}')" ondragover="dragSegOver(event)" ondragleave="dragSegLeave(event)" ondrop="dragSegDrop(event,'${boxId}','${seg.id}')"><span class="seg-drag" title="Drag to reorder">⋮⋮</span><div class="seg-content"><span class="seg-type-badge ${badgeClass}">${badgeLabel}</span><div class="sub-config"><div class="sub-row"><input class="sub-label-input" value="${escHtml(seg.label||'')}" placeholder="Sub-box label..." oninput="updateSegField('${boxId}','${seg.id}','label',this.value)"/><select class="sub-type-select" onchange="updateSegField('${boxId}','${seg.id}','inputType',this.value);rerenderBoxes()">${typeOpts}</select></div>${extraConfig}</div></div><span class="seg-del" onclick="deleteSeg('${boxId}','${seg.id}')">×</span></div>`;
 }
 
 // ── CHECKBOX OPTION MANAGEMENT ──────────────────────────────────────────────
@@ -1049,7 +1079,7 @@ async function addSegment(boxId,type){
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); if(!box) return;
   const seg={id:'seg_'+Date.now(),type};
   if(type==='chain') seg.text='';
-  else{seg.label='';seg.inputType='text';seg.options=[];seg.checkboxOptions=[];seg.dateFormat='DD/MM/YYYY';seg.joinWith=', ';}
+  else{seg.label='';seg.inputType='text';seg.options=[];seg.checkboxOptions=[];seg.dateFormat='DD/MM/YYYY';seg.joinWith=', ';seg.tabularColumns=[];seg.tabularSeparator=' / ';}
   box.segments.push(seg);
   await saveTemplateNow(tpl);
   const c=document.getElementById('segs-'+boxId);
@@ -1151,6 +1181,21 @@ function openFillScreen(){
               <div><div class="checkbox-fill-label">${escHtml(opt.label||'Option '+(oi+1))}</div><div class="checkbox-fill-text">${escHtml(opt.text||'')}</div></div>
             </div>`).join('');
           inputHTML=`<div class="checkbox-fill-list">${checkItems}</div>`;
+        } else if(seg.inputType==='tabular'){
+          // Tabular gets its own container — not a simple inputHTML
+          const cols=seg.tabularColumns||[];
+          if(!fillAnswers[box.id]) fillAnswers[box.id]={};
+          if(!fillAnswers[box.id][seg.id]) fillAnswers[box.id][seg.id]=[[...cols.map(()=>'')]];
+          const headerCells=cols.map(col=>`<div class="tabular-header-cell">${escHtml(col.name||'Column')}</div>`).join('');
+          inputHTML=`<div class="tabular-fill-wrap" id="tabwrap-${box.id}-${seg.id}">
+            <div class="tabular-header-row">${headerCells}</div>
+            <div class="tabular-data-rows" id="tabrows-${box.id}-${seg.id}"></div>
+            <button class="btn-add-row" onclick="addTabularRow('${box.id}','${seg.id}')">+ Add row</button>
+          </div>`;
+          segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Table')}</div>${inputHTML}</div>`;
+          // render rows after DOM insertion via setTimeout
+          setTimeout(()=>renderTabularRows('${box.id}','${seg.id}',seg),0);
+          return; // skip the normal segsHTML+= below
         } else {
           inputHTML=`<input type="text" class="fill-input" id="${inputId}" placeholder="Type here..." oninput="recordAnswer('${box.id}','${seg.id}',this.value)"/>`;
         }
@@ -1200,11 +1245,102 @@ function updateFillPreview(boxId){
   const prev=document.getElementById('fp-'+boxId); if(prev&&box) prev.innerHTML=buildFilledSentence(box);
 }
 
+// ── TABULAR FILL FUNCTIONS ───────────────────────────────────────────────────
+function renderTabularRows(boxId, segId, seg){
+  const container=document.getElementById('tabrows-'+boxId+'-'+segId);
+  if(!container) return;
+  const cols=seg.tabularColumns||[];
+  const rows=fillAnswers[boxId]&&fillAnswers[boxId][segId]||[[]];
+  container.innerHTML='';
+  rows.forEach((row,ri)=>{
+    const rowEl=document.createElement('div');
+    rowEl.className='tabular-data-row';
+    rowEl.id='tabrow-'+boxId+'-'+segId+'-'+ri;
+    let cells=`<div class="tabular-row-num">${ri+1}</div>`;
+    cols.forEach((col,ci)=>{
+      let cellInput='';
+      const val=row[ci]||'';
+      if(col.type==='dropdown'){
+        const opts=(col.options||[]).map(o=>`<option value="${escHtml(o)}" ${val===o?'selected':''}>${escHtml(o)}</option>`).join('');
+        cellInput=`<select class="fill-input" onchange="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"><option value="">Select...</option>${opts}</select>`;
+      } else if(col.type==='number'){
+        cellInput=`<input type="number" class="fill-input" value="${escHtml(val)}" placeholder="0" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"/>`;
+      } else if(col.type==='date'){
+        cellInput=`<input type="date" class="fill-input" value="${escHtml(val)}" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"/>`;
+      } else {
+        cellInput=`<input type="text" class="fill-input" value="${escHtml(val)}" placeholder="..." oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value,${JSON.stringify(seg)})"/>`;
+      }
+      cells+=`<div class="tabular-cell">${cellInput}</div>`;
+    });
+    if(rows.length>1){
+      cells+=`<button class="btn-remove-row" onclick="removeTabularRow('${boxId}','${segId}',${ri},${JSON.stringify(seg)})" title="Remove row">×</button>`;
+    }
+    rowEl.innerHTML=cells;
+    container.appendChild(rowEl);
+  });
+  updateTabularPreview(boxId,segId,seg);
+}
+
+function recordTabularCell(boxId,segId,rowIdx,colIdx,value,seg){
+  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+  if(!fillAnswers[boxId][segId]) fillAnswers[boxId][segId]=[];
+  while(fillAnswers[boxId][segId].length<=rowIdx) fillAnswers[boxId][segId].push([]);
+  fillAnswers[boxId][segId][rowIdx][colIdx]=value;
+  updateTabularPreview(boxId,segId,seg);
+}
+
+function addTabularRow(boxId,segId){
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  const cols=seg.tabularColumns||[];
+  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+  if(!fillAnswers[boxId][segId]) fillAnswers[boxId][segId]=[];
+  fillAnswers[boxId][segId].push(cols.map(()=>''));
+  renderTabularRows(boxId,segId,seg);
+}
+
+function removeTabularRow(boxId,segId,rowIdx,seg){
+  if(!fillAnswers[boxId]||!fillAnswers[boxId][segId]) return;
+  fillAnswers[boxId][segId].splice(rowIdx,1);
+  renderTabularRows(boxId,segId,seg);
+}
+
+function updateTabularPreview(boxId,segId,seg){
+  const rows=fillAnswers[boxId]&&fillAnswers[boxId][segId]||[];
+  const cols=seg.tabularColumns||[];
+  const sep=seg.tabularSeparator||' / ';
+  const lines=rows.map((row,ri)=>{
+    const cells=cols.map((col,ci)=>row[ci]||`[${col.name||'Col '+(ci+1)}]`);
+    return `${ri+1}. ${cells.join(sep)}`;
+  });
+  // Update the main fill preview for this box
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
+  const prev=document.getElementById('fp-'+boxId);
+  if(prev&&box) prev.innerHTML=buildFilledSentence(box);
+}
+
+function buildTabularText(boxId,segId,seg){
+  const rows=fillAnswers[boxId]&&fillAnswers[boxId][segId]||[];
+  const cols=seg.tabularColumns||[];
+  const sep=seg.tabularSeparator||' / ';
+  return rows.map((row,ri)=>{
+    const cells=cols.map((col,ci)=>row[ci]||'');
+    return `${ri+1}. ${cells.join(sep)}`;
+  }).join('\n');
+}
+
 function buildFilledSentence(box){
   if(!box.segments||!box.segments.length) return '<span style="color:var(--ink3);font-style:italic;">No segments defined</span>';
   return box.segments.map(seg=>{
     if(seg.type==='chain') return `<span class="cp">${escHtml(seg.text||'')}</span>`;
     const val=fillAnswers[box.id]&&fillAnswers[box.id][seg.id];
+    if(seg.inputType==='tabular'){
+      const rows=Array.isArray(val)?val:[];
+      const cols=seg.tabularColumns||[];
+      const sep=seg.tabularSeparator||' / ';
+      if(!rows.length||!cols.length) return `<span style="color:var(--ink3);font-style:italic;">[${escHtml(seg.label||'Table')}]</span>`;
+      const lines=rows.map((row,ri)=>`${ri+1}. ${cols.map((col,ci)=>row[ci]||`[${col.name}]`).join(sep)}`);
+      return `<span class="sp" style="display:block;white-space:pre-line;">${escHtml(lines.join('\n'))}</span>`;
+    }
     if(seg.inputType==='checkbox'){
       const selectedIdxs=Array.isArray(val)?val:[];
       const opts=seg.checkboxOptions||[];
@@ -1229,6 +1365,12 @@ async function generatePDF(){
       const assembled=box.segments.map(seg=>{
         if(seg.type==='chain') return seg.text||'';
         const val=fillAnswers[box.id]&&fillAnswers[box.id][seg.id];
+        if(seg.inputType==='tabular'){
+          const rows=Array.isArray(val)?val:[];
+          const cols=seg.tabularColumns||[];
+          const sep=seg.tabularSeparator||' / ';
+          return rows.map((row,ri)=>`${ri+1}. ${cols.map((col,ci)=>row[ci]||'').join(sep)}`).join('\n');
+        }
         if(seg.inputType==='checkbox'){
           const selectedIdxs=Array.isArray(val)?val:[];
           const opts=seg.checkboxOptions||[];
@@ -1366,6 +1508,27 @@ async function doChangePassword(){
   if(error){msg.textContent=error.message;msg.style.color='var(--danger)';return;}
   msg.textContent='Password updated successfully!';msg.style.color='#065F46';
   setTimeout(()=>closeChangePasswordModal(),1500);
+}
+
+// ── TABULAR COLUMN MANAGEMENT ───────────────────────────────────────────────
+function addTabularCol(boxId, segId) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  if(!seg.tabularColumns) seg.tabularColumns=[];
+  seg.tabularColumns.push({name:'',type:'text',options:[]});
+  saveTemplate(tpl); rerenderBoxes();
+}
+function updateTabularCol(boxId, segId, idx, field, value) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  if(!seg.tabularColumns) seg.tabularColumns=[];
+  if(!seg.tabularColumns[idx]) seg.tabularColumns[idx]={name:'',type:'text',options:[]};
+  if(field==='options') seg.tabularColumns[idx].options=value.split('\n').filter(l=>l.trim());
+  else seg.tabularColumns[idx][field]=value;
+  saveTemplate(tpl);
+}
+function deleteTabularCol(boxId, segId, idx) {
+  const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
+  seg.tabularColumns.splice(idx,1);
+  saveTemplate(tpl); rerenderBoxes();
 }
 
 // ── SEGMENT DRAG TO REORDER ──────────────────────────────────────────────────
