@@ -1234,11 +1234,11 @@ async function loadAdminUsers(){
     const isFree = u.subscription_status!=='active';
     let actionBtn = '';
     if(isPaying){
-      actionBtn = `<span style="font-size:11px;color:var(--ink3);padding:5px 10px;border:1px solid var(--rule);border-radius:var(--radius);">Paying ✓</span>`;
+      actionBtn = `<span style="font-size:11px;color:#059669;padding:5px 10px;border:1px solid #A7F3D0;border-radius:50px;background:#ECFDF5;font-weight:600;">Paying ✓</span>`;
     } else if(isManualPro){
       actionBtn = `<button class="btn-admin-action btn-deactivate" style="padding:5px 10px;font-size:11px;" onclick="adminSetStatusByEmail('${escHtml(u.email)}','free')">Deactivate</button>`;
     } else {
-      actionBtn = `<button class="btn-admin-action btn-activate" style="padding:5px 10px;font-size:11px;" onclick="adminSetStatusByEmail('${escHtml(u.email)}','active')">Activate</button>`;
+      actionBtn = `<button class="btn-admin-action btn-activate" style="padding:5px 10px;font-size:11px;" onclick="adminSetStatusByEmail('${escHtml(u.email)}','active')">Activate Pro</button>`;
     }
     const statusLabel = isPaying ? 'Paying' : isManualPro ? 'Pro' : 'Free';
     const statusClass = (isPaying||isManualPro) ? 'status-active' : 'status-free';
@@ -1252,7 +1252,16 @@ async function loadAdminUsers(){
 
 async function adminSetStatus(status){
   const email = document.getElementById('admin-email-input').value.trim().toLowerCase();
-  if(!email) return;
+  const result = document.getElementById('admin-result');
+  if(!email){ result.textContent='Please enter an email address.'; result.className='admin-result error'; return; }
+  if(status === 'free'){
+    const {data:profile} = await sb.from('profiles').select('subscription_source,subscription_status').eq('email',email).single();
+    if(!profile){ result.textContent='User not found: '+email; result.className='admin-result error'; return; }
+    if(profile.subscription_source==='payfast' && profile.subscription_status==='active'){
+      result.textContent=email+' is a paying PayFast customer — cannot be manually deactivated.';
+      result.className='admin-result error'; return;
+    }
+  }
   await adminSetStatusByEmail(email, status);
   document.getElementById('admin-email-input').value='';
 }
