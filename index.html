@@ -243,6 +243,13 @@
   .status-active { background: #ECFDF5; color: #065F46; border: 1.5px solid #A7F3D0; }
   .status-free { background: var(--surface); color: var(--ink3); border: 1.5px solid var(--rule); }
 
+  /* ── PAYMENT FAILED BANNER ── */
+  .payment-failed-banner { background: #FFF7ED; border: 1.5px solid #FED7AA; border-radius: 18px; padding: 16px 22px; margin: 1.5rem 2rem 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .payment-failed-banner h3 { font-size: 14px; font-weight: 700; color: #9A3412; margin-bottom: 3px; }
+  .payment-failed-banner p { font-size: 12px; color: #C2410C; }
+  .btn-update-payment { padding: 9px 18px; background: #EA580C; color: white; border: none; border-radius: 50px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+  .btn-update-payment:hover { background: #C2410C; transform: translateY(-1px); }
+
   /* ── PAYWALL ── */
   .paywall-banner { background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); color: white; border-radius: 18px; padding: 22px 26px; margin: 1.5rem 2rem 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; box-shadow: 0 4px 20px rgba(79,70,229,0.3); }
   .paywall-banner h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
@@ -657,7 +664,7 @@ async function enterApp(user) {
   document.getElementById('nav-admin-btn').style.display='none';
   document.getElementById('nav-user-name').textContent=user.email;
   // Load subscription status
-  const {data:profile}=await sb.from('profiles').select('subscription_status,subscription_source,subscription_end_date').eq('id',user.id).single();
+  const {data:profile}=await sb.from('profiles').select('subscription_status,subscription_source,subscription_end_date,payment_failed_at').eq('id',user.id).single();
   userSubscription=profile?.subscription_status||'free';
 
   // Check if a cancelled user's end date has passed — drop them to free
@@ -698,6 +705,10 @@ async function enterApp(user) {
   // Show admin button only for admin user
   if(user.email===ADMIN_EMAIL){
     document.getElementById('nav-admin-btn').style.display='inline-block';
+  }
+  // Show payment failed warning if applicable
+  if(profile?.payment_failed_at && userSubscription==='active'){
+    showPaymentFailedBanner(profile.payment_failed_at);
   }
   await loadTemplates(); renderSidebar(); showScreen('app');
 }
@@ -1443,6 +1454,36 @@ async function doDeleteAccount(){
     showToast('Error deleting account. Please contact support@smartanswerpdf.com');
     console.error(err);
   }
+}
+
+// ── PAYMENT FAILED BANNER ────────────────────────────────────────────────────
+function showPaymentFailedBanner(failedAt) {
+  // Remove existing banner if any
+  const existing = document.getElementById('payment-failed-banner');
+  if(existing) existing.remove();
+
+  const failDate = new Date(failedAt);
+  const graceEnds = new Date(failDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+  const graceStr = graceEnds.toLocaleDateString('en-ZA', {day:'numeric', month:'long', year:'numeric'});
+
+  const banner = document.createElement('div');
+  banner.id = 'payment-failed-banner';
+  banner.className = 'payment-failed-banner';
+  banner.innerHTML = `
+    <div>
+      <h3>⚠️ Payment failed — action required</h3>
+      <p>Your last debit order did not go through. Please update your payment details before ${graceStr} to keep your Pro access. After that date your account will revert to the free plan.</p>
+    </div>
+    <button class="btn-update-payment" onclick="openUpdatePaymentModal()">Update payment details</button>`;
+
+  const editorArea = document.getElementById('editor-area');
+  editorArea.insertBefore(banner, editorArea.firstChild);
+}
+
+function openUpdatePaymentModal() {
+  // For now, direct them to contact support — PayFast doesn't have a self-serve
+  // payment update URL we can deep-link to. This can be upgraded later.
+  showToast('Please contact support@smartanswerpdf.com to update your payment details.');
 }
 
 // ── CANCEL MEMBERSHIP ────────────────────────────────────────────────────────
