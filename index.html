@@ -257,6 +257,26 @@
   .btn-upgrade { padding: 10px 22px; background: white; color: var(--accent); border: none; border-radius: 50px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
   .btn-upgrade:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
   .nav-badge { font-size: 11px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; padding: 4px 10px; border-radius: 50px; }
+
+  /* ── TABULAR FILL SCREEN ── */
+  .tabular-fill-wrap { display: flex; flex-direction: column; gap: 0; }
+  .tabular-fill-row-block { background: var(--white); border: 1.5px solid var(--rule); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; position: relative; transition: box-shadow 0.15s; }
+  .tabular-fill-row-block:hover { box-shadow: var(--shadow-sm); }
+  .tabular-fill-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .tabular-fill-row-num { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .tabular-fill-row-sep { height: 1px; background: var(--rule); margin: 6px 0 2px; }
+  .tabular-fill-rows-list { display: flex; flex-direction: column; gap: 10px; }
+  .tabular-fill-col-row { display: flex; flex-direction: column; gap: 4px; }
+  .tabular-fill-col-label { font-size: 11px; font-weight: 700; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .tabular-fill-col-input { width: 100%; }
+  .btn-add-row { display: flex; align-items: center; gap: 7px; padding: 10px 16px; border: 2px dashed #BBF7D0; border-radius: 14px; cursor: pointer; color: #166534; font-size: 13px; font-weight: 600; font-family: inherit; background: transparent; transition: all 0.2s; width: 100%; justify-content: center; margin-top: 10px; }
+  .btn-add-row:hover { border-color: #166534; background: #F0FDF4; }
+  .btn-remove-row-inline { font-size: 12px; color: var(--ink3); cursor: pointer; border: 1px solid var(--rule); border-radius: 50px; padding: 3px 10px; background: transparent; font-family: inherit; transition: all 0.15s; }
+  .btn-remove-row-inline:hover { border-color: var(--danger); color: var(--danger); background: #FEF2F2; }
+  .btn-remove-row-inline:disabled { opacity: 0.3; cursor: not-allowed; }
+  .tabular-fill-preview { margin-top: 12px; padding: 12px 16px; background: #F0FDF4; border-radius: var(--radius); font-size: 12px; color: #166534; line-height: 2; border-left: 3px solid #166534; white-space: pre-line; font-family: monospace; }
+  /* Legacy classes kept for compatibility */
+  .tabular-data-rows { display: flex; flex-direction: column; gap: 10px; }
 </style>
 </head>
 <body>
@@ -1192,7 +1212,7 @@ function openFillScreen(){
           const headerCells=cols.map(col=>`<div class="tabular-header-cell">${escHtml(col.name||'Column')}</div>`).join('');
           // Capture current box.id and seg for closure
           const _boxId=box.id; const _seg=JSON.parse(JSON.stringify(seg));
-          segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Table')}</div><div class="tabular-fill-wrap" id="tabwrap-${box.id}-${seg.id}"><div class="tabular-header-row"><div class="tabular-row-num"></div>${headerCells}</div><div class="tabular-data-rows" id="tabrows-${box.id}-${seg.id}"></div><button class="btn-add-row" onclick="addTabularRow('${box.id}','${seg.id}')">+ Add row</button></div></div>`;
+          segsHTML+=`<div class="fill-seg"><div class="fill-seg-label">${escHtml(seg.label||'Table')}</div><div class="tabular-fill-wrap" id="tabwrap-${box.id}-${seg.id}"><div class="tabular-data-rows" id="tabrows-${box.id}-${seg.id}"></div><button class="btn-add-row" onclick="addTabularRow('${box.id}','${seg.id}')">+ Add row</button></div></div>`;
           // Store seg reference for post-render
           tabularSegsToRender.push({boxId:box.id, segId:seg.id, seg:JSON.parse(JSON.stringify(seg))});
           // skip normal segsHTML+= below — already added above
@@ -1253,26 +1273,32 @@ function renderTabularRows(boxId, segId, seg){
   const container=document.getElementById('tabrows-'+boxId+'-'+segId);
   if(!container) return;
   const cols=seg.tabularColumns||[];
-  // Always read from fillAnswers — never fall back to [[]] which would wipe data
   if(!fillAnswers[boxId]) fillAnswers[boxId]={};
   if(!fillAnswers[boxId][segId]||!fillAnswers[boxId][segId].length){
     fillAnswers[boxId][segId]=[cols.map(()=>'')];
   }
   const rows=fillAnswers[boxId][segId];
-  const segJson=JSON.stringify(seg).replace(/'/g,"\'");
   container.innerHTML='';
+
   rows.forEach((row,ri)=>{
     const rowEl=document.createElement('div');
-    rowEl.className='tabular-data-row';
+    rowEl.className='tabular-fill-row-block';
     rowEl.id='tabrow-'+boxId+'-'+segId+'-'+ri;
-    let cells=`<div class="tabular-row-num">${ri+1}.</div>`;
+
+    // Row header: number + remove button
+    const canRemove=rows.length>1;
+    let html=`<div class="tabular-fill-row-header">
+      <div class="tabular-fill-row-num">Row ${ri+1}</div>
+      <button class="btn-remove-row-inline" ${canRemove?'':'disabled'} onclick="removeTabularRow('${boxId}','${segId}',${ri})">Remove row</button>
+    </div>`;
+
+    // Each column stacked: label then input
     cols.forEach((col,ci)=>{
-      let cellInput='';
       const val=row[ci]!==undefined?row[ci]:'';
+      let cellInput='';
       if(col.type==='dropdown'){
         const opts=(col.options||[]).map(o=>`<option value="${escHtml(o)}" ${val===o?'selected':''}>${escHtml(o)}</option>`).join('');
-        cellInput=`<select class="fill-input" onchange="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)">
-<option value="">Select...</option>${opts}</select>`;
+        cellInput=`<select class="fill-input tabular-fill-col-input" onchange="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"><option value="">Select...</option>${opts}</select>`;
       } else if(col.type==='checkbox'){
         const opts=(col.options||[]).map((o,oi)=>{
           const checked=Array.isArray(val)&&val.includes(oi);
@@ -1280,20 +1306,22 @@ function renderTabularRows(boxId, segId, seg){
         }).join('');
         cellInput=`<div class="checkbox-fill-list">${opts}</div>`;
       } else if(col.type==='number'){
-        cellInput=`<input type="number" class="fill-input" value="${escHtml(String(val))}" placeholder="0" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
+        cellInput=`<input type="number" class="fill-input tabular-fill-col-input" value="${escHtml(String(val))}" placeholder="0" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
       } else if(col.type==='date'){
-        cellInput=`<input type="date" class="fill-input" value="${escHtml(String(val))}" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
+        cellInput=`<input type="date" class="fill-input tabular-fill-col-input" value="${escHtml(String(val))}" oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
       } else {
-        cellInput=`<input type="text" class="fill-input" value="${escHtml(String(val))}" placeholder="..." oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
+        cellInput=`<input type="text" class="fill-input tabular-fill-col-input" value="${escHtml(String(val))}" placeholder="Type here..." oninput="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"/>`;
       }
-      cells+=`<div class="tabular-cell">${cellInput}</div>`;
+      html+=`<div class="tabular-fill-col-row">
+        <div class="tabular-fill-col-label">${escHtml(col.name||'Column '+(ci+1))}</div>
+        ${cellInput}
+      </div>`;
     });
-    // Always show remove button — grayed out if only one row
-    const rmStyle=rows.length<=1?'opacity:0.25;cursor:not-allowed;':'';
-    cells+=`<button class="btn-remove-row" style="${rmStyle}" onclick="if(${rows.length}>1)removeTabularRow('${boxId}','${segId}',${ri})" title="Remove row">×</button>`;
-    rowEl.innerHTML=cells;
+
+    rowEl.innerHTML=html;
     container.appendChild(rowEl);
   });
+
   updateTabularPreview(boxId,segId,seg);
 }
 
@@ -1346,14 +1374,32 @@ function updateTabularPreview(boxId,segId,seg){
   const rows=fillAnswers[boxId]&&fillAnswers[boxId][segId]||[];
   const cols=seg.tabularColumns||[];
   const sep=seg.tabularSeparator||' / ';
+  // Build preview text
   const lines=rows.map((row,ri)=>{
-    const cells=cols.map((col,ci)=>row[ci]||`[${col.name||'Col '+(ci+1)}]`);
-    return `${ri+1}. ${cells.join(sep)}`;
+    const cells=cols.map((col,ci)=>{
+      const cv=row&&row[ci]!==undefined?row[ci]:'';
+      if(col.type==='checkbox'&&Array.isArray(cv)){
+        return cv.map(idx=>(col.options||[])[idx]||'').filter(Boolean).join(', ')||'—';
+      }
+      return String(cv||'—');
+    });
+    return `${ri+1}.  ${cells.join(sep)}`;
   });
-  // Update the main fill preview for this box
+  // Show preview inside the wrap div
+  const wrap=document.getElementById('tabwrap-'+boxId+'-'+segId);
+  if(wrap){
+    let prev=wrap.querySelector('.tabular-fill-preview');
+    if(!prev){
+      prev=document.createElement('div');
+      prev.className='tabular-fill-preview';
+      wrap.appendChild(prev);
+    }
+    prev.textContent=lines.join('\n')||'No data yet';
+  }
+  // Also update the main box fill preview
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId);
-  const prev=document.getElementById('fp-'+boxId);
-  if(prev&&box) prev.innerHTML=buildFilledSentence(box);
+  const mainPrev=document.getElementById('fp-'+boxId);
+  if(mainPrev&&box) mainPrev.innerHTML=buildFilledSentence(box);
 }
 
 function buildTabularText(boxId,segId,seg){
