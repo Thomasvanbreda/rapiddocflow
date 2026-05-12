@@ -377,6 +377,7 @@
       <span id="nav-user-name"></span>
       <span id="nav-admin-btn" style="display:none;font-size:13px;color:var(--ink3);cursor:pointer;border:1px solid var(--rule);border-radius:20px;padding:4px 12px;" onclick="toggleAdminPanel()">Admin</span>
       <span id="nav-upgrade-btn" style="display:none;" class="btn-upgrade" onclick="startCheckout()" style="padding:5px 12px;font-size:12px;">Upgrade — R49.99/mo</span>
+      <span id="nav-cancel-btn" style="display:none;font-size:13px;color:#92400E;cursor:pointer;border:1.5px solid #FDE68A;background:#FEF3C7;border-radius:50px;padding:5px 14px;font-weight:500;transition:all 0.2s;" onmouseover="this.style.background='#FDE68A'" onmouseout="this.style.background='#FEF3C7'" onclick="openCancelModal()">Cancel membership</span>
       <span class="nav-logout" onclick="openChangePasswordModal()" style="cursor:pointer;">Change password</span>
       <span class="nav-logout" onclick="doLogout()">Sign out</span>
     </div>
@@ -530,6 +531,16 @@
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="cancel-modal">
+  <div class="modal">
+    <h3>Cancel membership</h3>
+    <p id="cancel-modal-text">Your Pro access will continue until the end of your current billing period. After that, your account will revert to the free plan and you won't be charged again.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCancelModal()">Keep my Pro</button>
+      <button id="cancel-confirm-btn" onclick="doCancel()" style="padding:9px 20px;background:linear-gradient(135deg,#EF4444,#DC2626);color:white;border:none;border-radius:50px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(239,68,68,0.3);transition:all 0.2s;">Yes, cancel membership</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -646,15 +657,41 @@ async function enterApp(user) {
   document.getElementById('nav-admin-btn').style.display='none';
   document.getElementById('nav-user-name').textContent=user.email;
   // Load subscription status
-  const {data:profile}=await sb.from('profiles').select('subscription_status').eq('id',user.id).single();
+  const {data:profile}=await sb.from('profiles').select('subscription_status,subscription_source,subscription_end_date').eq('id',user.id).single();
   userSubscription=profile?.subscription_status||'free';
-  // Show upgrade button if on free plan
+
+  // Check if a cancelled user's end date has passed — drop them to free
+  if(userSubscription==='cancelled' && profile?.subscription_end_date){
+    const endDate=new Date(profile.subscription_end_date);
+    if(new Date() > endDate){
+      await sb.from('profiles').update({subscription_status:'free',subscription_end_date:null}).eq('id',user.id);
+      userSubscription='free';
+    }
+  }
+
+  // Show correct nav badge and buttons
   const upgradeBtn=document.getElementById('nav-upgrade-btn');
+  const cancelBtn=document.getElementById('nav-cancel-btn');
   const badge=document.getElementById('nav-sub-badge');
-  if(userSubscription==='active'){
-    upgradeBtn.style.display='none';
+
+  // Reset all first
+  upgradeBtn.style.display='none';
+  cancelBtn.style.display='none';
+
+  if(userSubscription==='active' && profile?.subscription_source==='payfast'){
+    // Paying customer — show Pro badge + cancel option
     badge.innerHTML='<span class="nav-badge">Pro</span>';
+    cancelBtn.style.display='inline-block';
+  } else if(userSubscription==='active'){
+    // Manually activated — show Pro badge, no cancel button
+    badge.innerHTML='<span class="nav-badge">Pro</span>';
+  } else if(userSubscription==='cancelled' && profile?.subscription_end_date){
+    // Cancelled but still in paid period
+    const endDate=new Date(profile.subscription_end_date);
+    const endStr=endDate.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'});
+    badge.innerHTML=`<span class="nav-badge" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;">Pro until ${endStr}</span>`;
   } else {
+    // Free user
     upgradeBtn.style.display='inline-block';
     badge.innerHTML='<span class="nav-badge" style="background:#e0f0fa;color:#0d2d6e;">Free</span>';
   }
@@ -679,7 +716,7 @@ async function cloudDelete(id){await sb.from('templates').delete().eq('id',id).e
 function handlePdfUpload(e) {
   const file=e.target.files[0]; if(!file) return;
   // PAYWALL CHECK — block if free user already has 1 template
-  if(userSubscription!=='active' && Object.keys(templates).length>=1){
+  if(userSubscription!=='active' && userSubscription!=='cancelled' && Object.keys(templates).length>=1){
     e.target.value='';
     showPaywall();
     return;
@@ -766,7 +803,7 @@ function renderSidebar(){
   // Sort by created_at so first template is always index 0
   tpls.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
   tpls.forEach((tpl,idx)=>{
-    const isLocked = userSubscription!=='active' && idx>0;
+    const isLocked = userSubscription!=='active' && userSubscription!=='cancelled' && idx>0;
     const el=document.createElement('div');
     el.className='template-item'+(activeTemplateId===tpl.id?' active':'')+(isLocked?' locked':'');
     if(isLocked){
@@ -1392,6 +1429,53 @@ async function doDeleteAccount(){
     btn.textContent='Delete my account'; btn.disabled=false; btn.style.opacity='1';
     showToast('Error deleting account. Please contact support@smartanswerpdf.com');
     console.error(err);
+  }
+}
+
+// ── CANCEL MEMBERSHIP ────────────────────────────────────────────────────────
+async function openCancelModal(){
+  // Calculate and show the end date in the modal text
+  const {data:profile}=await sb.from('profiles').select('subscription_date').eq('id',currentUser.id).single();
+  if(profile?.subscription_date){
+    const subDate=new Date(profile.subscription_date);
+    const now=new Date();
+    const billingDay=subDate.getDate();
+    let endDate=new Date(now.getFullYear(),now.getMonth(),billingDay);
+    if(endDate>now) endDate=new Date(now.getFullYear(),now.getMonth()-1,billingDay);
+    endDate=new Date(endDate.getFullYear(),endDate.getMonth()+1,billingDay);
+    const endStr=endDate.toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});
+    document.getElementById('cancel-modal-text').textContent=`Your Pro access will continue until ${endStr}. After that, your account will revert to the free plan and you won't be charged again.`;
+  }
+  document.getElementById('cancel-modal').classList.add('open');
+}
+function closeCancelModal(){
+  document.getElementById('cancel-modal').classList.remove('open');
+}
+async function doCancel(){
+  const btn=document.getElementById('cancel-confirm-btn');
+  btn.disabled=true; btn.textContent='Cancelling...';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const resp=await fetch('/.netlify/functions/cancel-subscription',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({userId:currentUser.id})
+    });
+    const result=await resp.json();
+    if(!result.success) throw new Error(result.error||'Cancellation failed');
+    closeCancelModal();
+    // Update UI immediately
+    const endDate=new Date(result.subscription_end_date);
+    const endStr=endDate.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'});
+    document.getElementById('nav-cancel-btn').style.display='none';
+    document.getElementById('nav-sub-badge').innerHTML=`<span class="nav-badge" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;">Pro until ${endStr}</span>`;
+    userSubscription='cancelled';
+    showToast('Membership cancelled — you have Pro access until '+endStr);
+  }catch(err){
+    showToast('Error: '+err.message);
+    console.error(err);
+  }finally{
+    btn.disabled=false; btn.textContent='Yes, cancel membership';
   }
 }
 

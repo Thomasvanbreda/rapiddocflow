@@ -68,11 +68,42 @@ exports.handler = async (event) => {
     }
 
     if (paymentStatus === 'COMPLETE') {
+      // Payment succeeded — ensure they are active (also handles reactivation)
       await supabaseUpdate(userId, 'active', token);
       console.log(`Subscription activated for user ${userId}`);
     } else if (paymentStatus === 'CANCELLED') {
-      await supabaseUpdate(userId, 'free', null);
-      console.log(`Subscription cancelled for user ${userId}`);
+      // PayFast confirms cancellation — subscription_end_date was already set
+      // when the user clicked cancel. Just log it; the frontend expiry check
+      // will flip them to 'free' once the end date passes.
+      // We do NOT immediately drop to free here — they have paid-up time remaining.
+      console.log(`Subscription cancellation confirmed by PayFast for user ${userId}`);
+      // Status stays as 'cancelled' (already set by cancel-subscription function)
+      // Only update if they are somehow still 'active' (edge case: ITN arrives before our function)
+      const checkRes = await new Promise((resolve, reject) => {
+        const url = new URL(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=subscription_status`);
+        const req = require('https').request({
+          hostname: url.hostname,
+          path: url.pathname + url.search,
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          }
+        }, res => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(JSON.parse(data)));
+        });
+        req.on('error', reject);
+        req.end();
+      });
+      const currentStatus = checkRes[0]?.subscription_status;
+      if (currentStatus === 'active') {
+        // Cancel button wasn't used — PayFast cancelled directly (e.g. failed payment)
+        // Set to cancelled with no end date grace period — drop to free immediately
+        await supabaseUpdate(userId, 'free', null);
+        console.log(`Subscription force-cancelled (no grace period) for user ${userId}`);
+      }
     }
 
     return { statusCode: 200, body: 'OK' };
