@@ -32,8 +32,20 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ── AUTH ── */
-  #auth-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: linear-gradient(135deg, #EEF2FF 0%, #ECFEFF 100%); }
-  .auth-card { background: var(--white); border: 1px solid var(--rule); border-radius: 24px; padding: 3rem 2.5rem; width: 100%; max-width: 420px; box-shadow: var(--shadow-lg); }
+  #auth-screen { display: none; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; background: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%); }
+  .auth-wrap { display: flex; gap: 60px; align-items: center; justify-content: center; width: 100%; max-width: 1000px; }
+  .auth-info { flex: 1; max-width: 460px; color: white; }
+  .auth-info-logo { font-family: 'Nunito', sans-serif; font-size: 36px; font-weight: 900; color: white; margin-bottom: 12px; letter-spacing: -0.5px; }
+  .auth-info-tagline { font-size: 22px; font-weight: 300; color: rgba(255,255,255,0.9); margin-bottom: 36px; line-height: 1.4; }
+  .auth-info-tagline strong { font-weight: 700; color: white; }
+  .auth-feature { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+  .auth-feature-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .auth-feature-text { flex: 1; }
+  .auth-feature-title { font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; }
+  .auth-feature-desc { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.5; }
+
+  .auth-card { background: var(--white); border: 1px solid var(--rule); border-radius: 24px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); flex-shrink: 0; }
+  @media (max-width: 800px) { .auth-info { display: none; } .auth-wrap { justify-content: center; } }
   .auth-logo { font-family: 'Nunito', sans-serif; font-size: 30px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 4px; letter-spacing: -0.5px; }
   .auth-tagline { font-size: 13px; color: var(--ink3); margin-bottom: 2rem; }
   .auth-tabs { display: flex; background: var(--surface); border-radius: var(--radius); padding: 4px; margin-bottom: 1.5rem; gap: 4px; }
@@ -248,13 +260,77 @@
 </div>
 
 <div id="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo">SmartAnswerPDF</div>
-    <div class="auth-tagline">Answer smarter. Document faster.</div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
-      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Create account</button>
+  <div class="auth-wrap">
+
+    <!-- LEFT — Product info -->
+    <div class="auth-info">
+      <div class="auth-info-logo">SmartAnswerPDF</div>
+      <div class="auth-info-tagline"><strong>Answer smarter.</strong> Document faster.</div>
+
+      <div class="auth-feature">
+        <div class="auth-feature-icon">📄</div>
+        <div class="auth-feature-text">
+          <div class="auth-feature-title">Upload any PDF</div>
+          <div class="auth-feature-desc">Works with contracts, forms, records, agreements and more</div>
+        </div>
+      </div>
+
+      <div class="auth-feature">
+        <div class="auth-feature-icon">🧩</div>
+        <div class="auth-feature-text">
+          <div class="auth-feature-title">Build smart templates once</div>
+          <div class="auth-feature-desc">Set up fixed text and variable fields — reuse forever</div>
+        </div>
+      </div>
+
+      <div class="auth-feature">
+        <div class="auth-feature-icon">⚡</div>
+        <div class="auth-feature-text">
+          <div class="auth-feature-title">Generate documents instantly</div>
+          <div class="auth-feature-desc">Select answers and download a perfect PDF in seconds</div>
+        </div>
+      </div>
+
+      <div class="auth-feature">
+        <div class="auth-feature-icon">🔒</div>
+        <div class="auth-feature-text">
+          <div class="auth-feature-title">Private and secure</div>
+          <div class="auth-feature-desc">Completed PDFs generated in your browser — never uploaded</div>
+        </div>
+      </div>
+
+      <!-- Free to start row -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="width:28px;height:28px;background:rgba(16,185,129,0.25);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="color:#6EE7B7;font-size:14px;font-weight:700;">✓</span>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:white;">Free to start</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.65);">No credit card required · Cancel anytime</div>
+        </div>
+        <div style="margin-left:auto;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.4);color:#6EE7B7;font-size:11px;font-weight:700;padding:4px 12px;border-radius:50px;letter-spacing:0.04em;">R0 / month</div>
+      </div>
+
+      <!-- Free tool card — whole card is a button -->
+      <a href="/create-fields.html" target="_blank" style="display:block;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:14px;padding:14px 16px;text-decoration:none;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="width:28px;height:28px;background:rgba(255,255,255,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">⬡</div>
+          <div style="font-size:13px;font-weight:700;color:white;">Create PDF Fields</div>
+          <div style="margin-left:auto;background:rgba(255,255,255,0.18);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:50px;letter-spacing:0.06em;">FREE TOOL</div>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.72);line-height:1.6;">Draw fillable text fields directly on any flat PDF. Name them, download instantly — no account needed.</div>
+      </a>
+
     </div>
+
+    <!-- RIGHT — Auth card -->
+    <div class="auth-card">
+      <div class="auth-logo">SmartAnswerPDF</div>
+      <div class="auth-tagline">Answer smarter. Document faster.</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
+        <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Create account</button>
+      </div>
     <div id="login-form">
       <div class="field-group"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••"/></div>
@@ -288,6 +364,8 @@
     </div>
     <div class="auth-msg" id="auth-msg"></div>
   </div>
+
+  </div><!-- end auth-wrap -->
 </div>
 
 <div id="app-screen">
