@@ -1254,14 +1254,6 @@ async function adminSetStatus(status){
   const email = document.getElementById('admin-email-input').value.trim().toLowerCase();
   const result = document.getElementById('admin-result');
   if(!email){ result.textContent='Please enter an email address.'; result.className='admin-result error'; return; }
-  if(status === 'free'){
-    const {data:profile} = await sb.from('profiles').select('subscription_source,subscription_status').eq('email',email).single();
-    if(!profile){ result.textContent='User not found: '+email; result.className='admin-result error'; return; }
-    if(profile.subscription_source==='payfast' && profile.subscription_status==='active'){
-      result.textContent=email+' is a paying PayFast customer — cannot be manually deactivated.';
-      result.className='admin-result error'; return;
-    }
-  }
   await adminSetStatusByEmail(email, status);
   document.getElementById('admin-email-input').value='';
 }
