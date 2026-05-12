@@ -258,50 +258,25 @@
   .btn-upgrade:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
   .nav-badge { font-size: 11px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; padding: 4px 10px; border-radius: 50px; }
 
-  /* ── TABULAR BUILDER (editor) ── */
-  .badge-tabular { background: #F0FDF4; color: #166534; border: 1.5px solid #BBF7D0; }
-  .tabular-config { display: flex; flex-direction: column; gap: 10px; }
-  .tabular-separator-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--surface); border-radius: 8px; padding: 7px 10px; }
-  .tabular-separator-input { padding: 5px 8px; border: 1.5px solid var(--rule); border-radius: 8px; font-family: inherit; font-size: 12px; width: 55px; color: var(--ink); outline: none; text-align: center; }
-  .tabular-separator-input:focus { border-color: var(--accent); }
-  .tabular-builder-table { width: 100%; border-collapse: collapse; border-radius: 10px; overflow: hidden; border: 1.5px solid #BBF7D0; font-size: 12px; }
-  .tabular-builder-table thead th { background: #F0FDF4; color: #166534; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 7px 10px; text-align: left; border-bottom: 1.5px solid #BBF7D0; }
-  .tabular-builder-table tbody td { padding: 7px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; background: var(--white); }
-  .tabular-builder-table tbody tr:last-child td { border-bottom: none; }
-  .tab-build-name { width: 100%; padding: 6px 8px; border: 1.5px solid #BBF7D0; border-radius: 7px; font-family: inherit; font-size: 12px; background: #F0FDF4; color: #166534; font-weight: 600; outline: none; min-width: 90px; }
-  .tab-build-name:focus { border-color: #166534; box-shadow: 0 0 0 2px rgba(22,101,52,0.1); }
-  .tab-build-type { width: 100%; padding: 6px 8px; border: 1.5px solid var(--rule); border-radius: 7px; font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; }
-  .tab-build-type:focus { border-color: var(--accent); }
-  .tab-build-opts { width: 100%; padding: 5px 8px; border: 1.5px solid var(--rule); border-radius: 7px; font-family: inherit; font-size: 11px; color: var(--ink); outline: none; resize: vertical; min-height: 44px; }
-  .tab-build-opts:focus { border-color: var(--accent); }
-  .tab-build-del { background: none; border: none; cursor: pointer; color: var(--ink3); font-size: 16px; padding: 2px 4px; border-radius: 5px; transition: all 0.15s; opacity: 0.4; }
-  .tab-build-del:hover { background: #FEE2E2; color: var(--danger); opacity: 1; }
-  .btn-add-col { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #166534; cursor: pointer; padding: 6px 14px; background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 50px; font-family: inherit; font-weight: 600; transition: all 0.2s; }
-  .btn-add-col:hover { background: #DCFCE7; border-color: #166534; }
-
   /* ── TABULAR FILL SCREEN ── */
-  .tabular-fill-wrap { display: flex; flex-direction: column; gap: 10px; }
-  .tabular-grid { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--rule); font-size: 13px; }
-  .tabular-grid th { background: var(--accent-light); color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 12px; text-align: left; border-bottom: 1.5px solid var(--sub-border); white-space: nowrap; }
-  .tabular-grid th.tab-num-h { width: 36px; color: var(--ink3); text-align: center; background: var(--surface); }
-  .tabular-grid th.tab-del-h { width: 36px; background: var(--surface); }
-  .tabular-grid td { padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; background: var(--white); }
-  .tabular-grid td.tab-num-d { text-align: center; font-weight: 700; color: var(--ink3); font-size: 12px; background: var(--surface); }
-  .tabular-grid td.tab-del-d { text-align: center; background: var(--surface); }
-  .tabular-grid tr:last-child td { border-bottom: none; }
-  .tabular-grid td .fill-input { width: 100%; min-width: 80px; }
-  .tab-del-btn { background: none; border: none; cursor: pointer; color: var(--ink3); font-size: 18px; padding: 2px 6px; border-radius: 6px; transition: all 0.15s; line-height: 1; }
-  .tab-del-btn:hover { background: #FEE2E2; color: var(--danger); }
-  .tab-del-btn:disabled { opacity: 0.2; cursor: not-allowed; }
-  .btn-add-row { display: flex; align-items: center; gap: 7px; padding: 10px 16px; border: 2px dashed #BBF7D0; border-radius: 12px; cursor: pointer; color: #166534; font-size: 13px; font-weight: 600; font-family: inherit; background: transparent; transition: all 0.2s; width: 100%; justify-content: center; }
+  .tabular-fill-wrap { display: flex; flex-direction: column; gap: 0; }
+  .tabular-fill-row-block { background: var(--white); border: 1.5px solid var(--rule); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; position: relative; transition: box-shadow 0.15s; }
+  .tabular-fill-row-block:hover { box-shadow: var(--shadow-sm); }
+  .tabular-fill-row-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .tabular-fill-row-num { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .tabular-fill-row-sep { height: 1px; background: var(--rule); margin: 6px 0 2px; }
+  .tabular-fill-rows-list { display: flex; flex-direction: column; gap: 10px; }
+  .tabular-fill-col-row { display: flex; flex-direction: column; gap: 4px; }
+  .tabular-fill-col-label { font-size: 11px; font-weight: 700; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .tabular-fill-col-input { width: 100%; }
+  .btn-add-row { display: flex; align-items: center; gap: 7px; padding: 10px 16px; border: 2px dashed #BBF7D0; border-radius: 14px; cursor: pointer; color: #166534; font-size: 13px; font-weight: 600; font-family: inherit; background: transparent; transition: all 0.2s; width: 100%; justify-content: center; margin-top: 10px; }
   .btn-add-row:hover { border-color: #166534; background: #F0FDF4; }
-  .tabular-fill-preview { padding: 12px 16px; background: #F0FDF4; border-radius: var(--radius); font-size: 12px; color: #166534; line-height: 2; border-left: 3px solid #166534; white-space: pre-line; font-family: monospace; }
-  .tab-checkbox-list { display: flex; flex-direction: column; gap: 4px; }
-  .tab-checkbox-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1.5px solid var(--rule); border-radius: 8px; cursor: pointer; transition: all 0.15s; font-size: 12px; }
-  .tab-checkbox-item:hover { border-color: var(--accent); background: var(--accent-light); }
-  .tab-checkbox-item.checked { border-color: var(--accent); background: var(--accent-light); }
-  .tab-checkbox-item input { accent-color: var(--accent); flex-shrink: 0; margin: 0; }
-  .tabular-data-rows { display: none; }
+  .btn-remove-row-inline { font-size: 12px; color: var(--ink3); cursor: pointer; border: 1px solid var(--rule); border-radius: 50px; padding: 3px 10px; background: transparent; font-family: inherit; transition: all 0.15s; }
+  .btn-remove-row-inline:hover { border-color: var(--danger); color: var(--danger); background: #FEF2F2; }
+  .btn-remove-row-inline:disabled { opacity: 0.3; cursor: not-allowed; }
+  .tabular-fill-preview { margin-top: 12px; padding: 12px 16px; background: #F0FDF4; border-radius: var(--radius); font-size: 12px; color: #166534; line-height: 2; border-left: 3px solid #166534; white-space: pre-line; font-family: monospace; }
+  /* Legacy classes kept for compatibility */
+  .tabular-data-rows { display: flex; flex-direction: column; gap: 10px; }
 </style>
 </head>
 <body>
