@@ -831,9 +831,12 @@ async function startCheckout(){
     form.action='https://www.payfast.co.za/eng/process';
     form.style.display='none';
     Object.entries(data.fields).forEach(([k,v])=>{
-      const input=document.createElement('input');
-      input.type='hidden'; input.name=k; input.value=v;
-      form.appendChild(input);
+      // Only submit fields that have values — must match what was signed
+      if(v !== '' && v !== null && v !== undefined){
+        const input=document.createElement('input');
+        input.type='hidden'; input.name=k; input.value=v;
+        form.appendChild(input);
+      }
     });
     document.body.appendChild(form);
     form.submit();
