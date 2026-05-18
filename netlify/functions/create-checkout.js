@@ -41,13 +41,13 @@ exports.handler = async (event) => {
       name_first:        (firstName || '').trim(),
       name_last:         (lastName || '').trim(),
       email_address:     email.trim(),
-      amount:            '5.00',           // TEST: R5 instead of R49.99
+      amount:            '49.99',
       item_name:         'SmartAnswerPDF Pro - Monthly Subscription',
       custom_str1:       userId,
       subscription_type: '1',
       billing_date:      new Date().toISOString().split('T')[0],
-      recurring_amount:  '5.00',           // TEST: R5 recurring
-      frequency:         '1',              // TEST: Daily instead of Monthly
+      recurring_amount:  '49.99',
+      frequency:         '3',
       cycles:            '0',
     };
 
