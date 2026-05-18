@@ -4,22 +4,18 @@ const PAYFAST_MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID;
 const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
-// PayFast docs: spaces = '+', everything else = uppercase %XX
-// This exactly matches PHP urlencode()
 function pfEncode(val) {
   return encodeURIComponent(String(val).trim())
-    .replace(/%20/g, '+')                              // spaces → +
-    .replace(/%[0-9a-f]{2}/g, m => m.toUpperCase());  // lowercase hex → UPPERCASE
+    .replace(/%20/g, '+')
+    .replace(/%[0-9a-f]{2}/g, m => m.toUpperCase());
 }
 
 function generateSignature(data, passphrase) {
-  // Skip empty fields, encode each value, join with &
   const str = Object.entries(data)
     .filter(([k, v]) => k !== 'signature' && String(v).trim() !== '')
     .map(([k, v]) => `${k}=${pfEncode(v)}`)
     .join('&')
     + (passphrase ? `&passphrase=${pfEncode(passphrase)}` : '');
-
   console.log('Signature string:', str);
   return crypto.createHash('md5').update(str).digest('hex');
 }
@@ -34,10 +30,13 @@ exports.handler = async (event) => {
     if (!userId || !email) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
-
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
 
-    // Fields in exact PayFast order per documentation
+    // Exact order per PayFast docs:
+    // 1. Merchant details
+    // 2. Customer details  
+    // 3. Transaction details (including custom_str BEFORE subscription fields)
+    // 4. Subscription fields
     const data = {
       merchant_id:       PAYFAST_MERCHANT_ID,
       merchant_key:      PAYFAST_MERCHANT_KEY,
@@ -49,12 +48,12 @@ exports.handler = async (event) => {
       email_address:     email.trim(),
       amount:            '49.99',
       item_name:         'SmartAnswerPDF Pro - Monthly Subscription',
+      custom_str1:       userId,
       subscription_type: '1',
       billing_date:      new Date().toISOString().split('T')[0],
       recurring_amount:  '49.99',
       frequency:         '3',
       cycles:            '0',
-      custom_str1:       userId,
     };
 
     data.signature = generateSignature(data, passphrase);
