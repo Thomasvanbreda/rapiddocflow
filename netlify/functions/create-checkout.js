@@ -5,14 +5,19 @@ const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
 function generateSignature(data, passphrase) {
-  // Empty fields must be excluded from signature
-  let str = Object.keys(data)
+  // Build string from all non-empty fields excluding signature
+  const pfOutput = Object.keys(data)
     .filter(k => k !== 'signature' && data[k] !== '' && data[k] !== null && data[k] !== undefined)
     .map(k => `${k}=${encodeURIComponent(String(data[k])).replace(/%20/g, '+')}`)
     .join('&');
-  if (passphrase) {
-    str += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`;
+
+  // Append passphrase if set
+  let str = pfOutput;
+  if (passphrase && passphrase.trim() !== '') {
+    str += `&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`;
   }
+
+  console.log('Signature string:', str);
   return crypto.createHash('md5').update(str).digest('hex');
 }
 
@@ -29,27 +34,36 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
 
-    // Fields in EXACT order PayFast requires for signature
+    // Use passphrase trimmed — avoid whitespace issues from copy/paste in Netlify
+    const passphrase = (PAYFAST_PASSPHRASE || '').trim();
+
+    console.log('MERCHANT_ID:', PAYFAST_MERCHANT_ID);
+    console.log('MERCHANT_KEY:', PAYFAST_MERCHANT_KEY ? '***set***' : 'NOT SET');
+    console.log('PASSPHRASE set:', passphrase.length > 0);
+
+    // Fields in EXACT order PayFast requires
     const data = {
-      merchant_id:      PAYFAST_MERCHANT_ID,
-      merchant_key:     PAYFAST_MERCHANT_KEY,
-      return_url:       'https://smartanswerpdf.com?payment=success',
-      cancel_url:       'https://smartanswerpdf.com?payment=cancelled',
-      notify_url:       'https://smartanswerpdf.com/.netlify/functions/payfast-itn',
-      name_first:       firstName || '',
-      name_last:        lastName || '',
-      email_address:    email,
-      amount:           '49.99',
-      item_name:        'SmartAnswerPDF Pro - Monthly Subscription',
+      merchant_id:       PAYFAST_MERCHANT_ID,
+      merchant_key:      PAYFAST_MERCHANT_KEY,
+      return_url:        'https://smartanswerpdf.com?payment=success',
+      cancel_url:        'https://smartanswerpdf.com?payment=cancelled',
+      notify_url:        'https://smartanswerpdf.com/.netlify/functions/payfast-itn',
+      name_first:        firstName || '',
+      name_last:         lastName || '',
+      email_address:     email,
+      amount:            '49.99',
+      item_name:         'SmartAnswerPDF Pro - Monthly Subscription',
       subscription_type: '1',
-      billing_date:     new Date().toISOString().split('T')[0],
-      recurring_amount: '49.99',
-      frequency:        '3',
-      cycles:           '0',
-      custom_str1:      userId,
+      billing_date:      new Date().toISOString().split('T')[0],
+      recurring_amount:  '49.99',
+      frequency:         '3',
+      cycles:            '0',
+      custom_str1:       userId,
     };
 
-    data.signature = generateSignature(data, PAYFAST_PASSPHRASE);
+    data.signature = generateSignature(data, passphrase);
+
+    console.log('Generated signature:', data.signature);
 
     return {
       statusCode: 200,
@@ -57,7 +71,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ fields: data })
     };
   } catch (err) {
-    console.error('Checkout error:', err.message);
+    console.error('Checkout error:', err.message, err.stack);
     return { statusCode: 500, body: JSON.stringify({ error: 'Server error', detail: err.message }) };
   }
 };
