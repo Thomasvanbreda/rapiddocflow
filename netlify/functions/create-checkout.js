@@ -4,29 +4,22 @@ const PAYFAST_MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID;
 const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
-// Exactly mirrors PHP's urlencode():
-// spaces → +, special chars → %XX uppercase, letters/digits/- _ . ~ untouched
-function phpUrlencode(str) {
-  return encodeURIComponent(String(str))
-    .replace(/%20/g, '+')
-    .replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
-    .replace(/%[0-9a-f]{2}/g, m => m.toUpperCase());
+// PayFast docs: spaces = '+', everything else = uppercase %XX
+// This exactly matches PHP urlencode()
+function pfEncode(val) {
+  return encodeURIComponent(String(val).trim())
+    .replace(/%20/g, '+')                              // spaces → +
+    .replace(/%[0-9a-f]{2}/g, m => m.toUpperCase());  // lowercase hex → UPPERCASE
 }
 
 function generateSignature(data, passphrase) {
-  // PHP: foreach skip empty, urlencode(trim(val))
-  const parts = [];
-  for (const [key, val] of Object.entries(data)) {
-    if (key === 'signature') continue;
-    const trimmed = String(val ?? '').trim();
-    if (trimmed !== '') {
-      parts.push(`${key}=${phpUrlencode(trimmed)}`);
-    }
-  }
-  let str = parts.join('&');
-  if (passphrase && passphrase.trim() !== '') {
-    str += `&passphrase=${phpUrlencode(passphrase.trim())}`;
-  }
+  // Skip empty fields, encode each value, join with &
+  const str = Object.entries(data)
+    .filter(([k, v]) => k !== 'signature' && String(v).trim() !== '')
+    .map(([k, v]) => `${k}=${pfEncode(v)}`)
+    .join('&')
+    + (passphrase ? `&passphrase=${pfEncode(passphrase)}` : '');
+
   console.log('Signature string:', str);
   return crypto.createHash('md5').update(str).digest('hex');
 }
@@ -41,10 +34,10 @@ exports.handler = async (event) => {
     if (!userId || !email) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
+
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
 
-    // Raw values — form browser will encode on submit
-    // Signature uses phpUrlencode() to match what browser sends
+    // Fields in exact PayFast order per documentation
     const data = {
       merchant_id:       PAYFAST_MERCHANT_ID,
       merchant_key:      PAYFAST_MERCHANT_KEY,
