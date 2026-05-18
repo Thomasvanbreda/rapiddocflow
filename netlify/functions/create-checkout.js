@@ -5,7 +5,6 @@ const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
 function generateSignature(data, passphrase) {
-  // Use %20 NOT + for spaces — this is what worked at 8:30 PM
   let str = Object.keys(data)
     .filter(k => k !== 'signature' && data[k] !== '' && data[k] !== null && data[k] !== undefined)
     .map(k => `${k}=${encodeURIComponent(String(data[k]))}`)
@@ -52,6 +51,7 @@ exports.handler = async (event) => {
     };
 
     data.signature = generateSignature(data, passphrase);
+
     console.log('Generated signature:', data.signature);
 
     return {

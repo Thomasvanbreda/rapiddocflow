@@ -1,0 +1,95 @@
+[33mbd96e27[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m restore 8:30 working version %20 encoding
+[33m30b1d99[m restore clean signature - remove empty fields
+[33mfced1a5[m restore exact working version
+[33ma56ad07[m remove all name fields from PayFast
+[33m39bfad8[m remove name_last from PayFast fields
+[33m5afa67e[m fix signature - include all fields including empty
+[33mef51b80[m fix field order - use array to guarantee signature order
+[33m1b5f514[m restore clean signature - remove empty fields
+[33m46291a8[m include all PayFast fields in signature
+[33ma7dca37[m fix signature encoding - use %20 not +
+[33mb232878[m add signature logging
+[33maebc738[m fix PayFast field order
+[33m3344592[m fix PayFast signature - include all fields
+[33m903bdff[m switch to PayFast live
+[33mc42ae47[m tabular builder - card layout, fix checkbox options
+[33m684d54b[m restore working index.html
+[33m2e45b86[m tabular builder - clean table layout, fix checkbox options
+[33mb5b5091[m tabular fill - stacked row layout with labels
+[33mdd90eae[m fix tabular fill - rows, preview, checkbox columns
+[33m724a710[m fix tabular syntax error - missing closing brace
+[33m6b1aca1[m add tabular response format sub-box type
+[33m6714228[m fix netlify.toml - remove nextjs plugin
+[33m3e5a0cc[m add failed payment grace period and expiry logic
+[33m729498f[m protect cancelled users from admin override
+[33mc379838[m fix sandbox cancel bypass
+[33m524c684[m add cancel membership flow
+[33med82d5d[m latest index - sandbox payfast, updated auth screen, admin fixes
+[33m8765e19[m fix admin panel - activate pro for free users, protect payfast customers
+[33m558f926[m make create pdf fields card fully clickable
+[33mce66290[m remove pdf preview panel feature entirely
+[33m19c9993[m pdf preview option 3 - 5x render scale 15% crop
+[33m5e8f59a[m replace blurry pdf preview with clean dropdown + view pdf button
+[33me6c4bb1[m revert pdf preview to clean canvas version
+[33md9b3ada[m fix site loading - replace blob URL with base64 data URL for pdf preview
+[33m3e9b9a8[m pdf preview - native iframe rendering, sharp quality
+[33m412e4f3[m pdf preview - full width half page centred on field
+[33m8402e99[m zoomed crop preview - crisp field highlighting
+[33m6c27d6c[m fix blurry pdf preview - render at full DPR resolution
+[33md6d5d14[m fix blurry preview and field highlighting using pdfjs annotations
+[33mddc938f[m fix blank pdf preview - use drawImage instead of cloneNode
+[33m7cdc670[m custom field dropdown with pdf preview hover highlighting
+[33m33a9795[m pdf preview - single page, click to open, jump to field on hover
+[33m525c6a6[m add PDF field preview panel with hover highlighting
+[33m1df11bb[m add drag to reorder chains and sub-boxes within a box
+[33m876dd35[m fix invisible fields - let Adobe render appearances natively
+[33m569a4d9[m force text visible from top of field on open
+[33md27f218[m fix text visibility in Adobe without clicking field
+[33m8f22c57[m remove flatten - keep PDF editable in Adobe after download
+[33m2f28e68[m latest index and create-fields
+[33mdcb3433[m fix font size - 9pt fixed with multiline vertical overflow
+[33m4030e4d[m auto font size and multiline baked into field creator
+[33mccd5550[m dark grey crosshair cursor on pdf field creator
+[33m9d29950[m auto font size and multiline on pdf text fields
+[33me1de6d6[m fix pdf rendering and download on create-fields
+[33md586a87[m add PDF field creator tool
+[33m4d6119a[m update page title
+[33m47c1e0a[m update favicon - checkmark
+[33mc844339[m add favicon
+[33m0a77276[m Payfast from sandbox to Live
+[33m2c0a518[m show email in nav, add change password feature
+[33ma64d0e1[m fix contact - copy email to clipboard button
+[33m497b186[m fix contact button - show plain email link
+[33m22ce315[m update privacy policy - account deletion, contact section
+[33me23d69f[m add full account deletion including auth record
+[33mf64552a[m add delete account feature
+[33m67953ca[m add privacy policy links to signup and sidebar
+[33me26cf0b[m add privacy policy page
+[33mea9b19b[m modern UI redesign + remove lock emoji
+[33m05dca64[m protect paying payfast customers from manual deactivation
+[33m1207c65[m fix admin button showing for all users
+[33mef45546[m fix unresponsive buttons - prevent re-render on token refresh
+[33m3109872[m fix empty name fields causing signature mismatch
+[33md4a1f83[m fix payfast field order - custom_str1 before subscription fields
+[33m06c50bb[m fix signature - match payfast php sdk exactly
+[33m27b70ab[m remove billing_date from payfast form
+[33mf3997ad[m debug signature string
+[33m2415a59[m fix payfast signature - include empty fields, fix itn merchant id
+[33m8b33acf[m fix payfast signature - remove sort
+[33md046421[m use env var for merchant ID
+[33m0f5f34c[m switch to PayFast sandbox for testing
+[33me613dc8[m lock extra templates for free users
+[33m2c79a4e[m protect paying subscribers from manual deactivation
+[33m20c81fe[m fix admin panel refresh
+[33m20a2a34[m secure checkout, admin panel
+[33me094b25[m add PayFast payment integration
+[33m64f6ccf[m add forgot password and reset password
+[33mae35925[m rename to SmartAnswerPDF
+[33m24611ff[m replace emojis with letter icons
+[33md8a177f[m ocean breeze theme, remove paperclip
+[33mc37fe6a[m fix editor performance
+[33m6788cb9[m add replace PDF feature
+[33m0914383[m duplicate pdf field warning
+[33me5ca80b[m add checkboxes, date format, debouncing
+[33m5e22a56[m connect supabase
+[33m1a603c5[m first commit
