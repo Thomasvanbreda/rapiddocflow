@@ -1405,6 +1405,7 @@ function updateMttDim(boxId, dim, val){
       (box.mttFields[r]&&box.mttFields[r][c2])||''));
   saveTemplate(tpl);
   rerenderBoxes();
+  checkDuplicateFields();
 }
 
 function updateMttHeader(boxId, type, idx, val){
@@ -1429,6 +1430,7 @@ function updateMttField(boxId, r, c2, val){
   if(!box.mttFields[r]) box.mttFields[r]=[];
   box.mttFields[r][c2]=val;
   saveTemplate(tpl);
+  checkDuplicateFields();
 }
 
 function updateMttBoxName(boxId, val){
