@@ -391,7 +391,8 @@
       </div>
     </div>
     <div id="signup-form" style="display:none">
-      <div class="field-group"><label>Full name</label><input type="text" id="signup-name" placeholder="Jane Smith"/></div>
+      <div class="field-group"><label>First name</label><input type="text" id="signup-firstname" placeholder="Jane"/></div>
+      <div class="field-group"><label>Last name</label><input type="text" id="signup-lastname" placeholder="Smith"/></div>
       <div class="field-group"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"/></div>
       <div class="field-group"><label>Password</label><input type="password" id="signup-pw" placeholder="Min. 6 characters"/></div>
       <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create account</button>
@@ -680,16 +681,18 @@ async function doResetPassword(){
 }
 
 async function doSignup() {
-  const name=document.getElementById('signup-name').value.trim();
+  const firstName=document.getElementById('signup-firstname').value.trim();
+  const lastName=document.getElementById('signup-lastname').value.trim();
   const email=document.getElementById('signup-email').value.trim().toLowerCase();
   const pw=document.getElementById('signup-pw').value;
-  if(!name||!email||!pw) return setMsg('Please fill in all fields.');
+  if(!firstName||!email||!pw) return setMsg('Please fill in all fields.');
   if(pw.length<6) return setMsg('Password must be at least 6 characters.');
+  const fullName=(firstName+' '+lastName).trim();
   const btn=document.getElementById('signup-btn'); btn.disabled=true; btn.textContent='Creating...';
-  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{name}}});
+  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{name:fullName,first_name:firstName,last_name:lastName}}});
   btn.disabled=false; btn.textContent='Create account';
   if(error) return setMsg(error.message);
-  if(data.user) await sb.from('profiles').insert({id:data.user.id,name,email});
+  if(data.user) await sb.from('profiles').insert({id:data.user.id,name:fullName,email,first_name:firstName,last_name:lastName});
   setMsg('Account created! Signing you in...',true);
 }
 
@@ -807,15 +810,17 @@ async function startCheckout(){
   if(!currentUser) return;
   showToast('Preparing checkout...');
   try {
-    const nameParts=(currentUser.user_metadata?.name||'').split(' ');
+    const {data:profile}=await sb.from('profiles').select('first_name,last_name,name').eq('id',currentUser.id).single();
+    const firstName=profile?.first_name||(profile?.name||'').split(' ')[0]||'';
+    const lastName=profile?.last_name||(profile?.name||'').split(' ').slice(1).join(' ')||'';
     const resp=await fetch('/.netlify/functions/create-checkout',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         userId: currentUser.id,
         email: currentUser.email,
-        firstName: nameParts[0]||'',
-        lastName: nameParts.slice(1).join(' ')||''
+        firstName: firstName,
+        lastName: lastName
       })
     });
     const data=await resp.json();
