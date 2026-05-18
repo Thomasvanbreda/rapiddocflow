@@ -210,7 +210,7 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 
   /* ── MISC INPUTS ── */
-  .mapping-select { padding: 8px 11px; border: 1.5px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; transition: border-color 0.2s; }
+  .mapping-select { padding: 8px 11px; border: 1.5px solid var(--rule); border-radius: var(--radius); font-family: inherit; font-size: 12px; background: var(--white); color: var(--ink); outline: none; flex: 1; min-width: 0; width: 100%; max-width: 100%; overflow: hidden; text-overflow: ellipsis; transition: border-color 0.2s; }
   .mapping-select:focus { border-color: var(--accent); }
 
   /* ── LOCKED TEMPLATES ── */
@@ -1008,12 +1008,12 @@ function buildBoxEl(box,bi,pdfFields){
     <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
   </div>
   <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;min-width:0;overflow:hidden;">
       <div style="flex:1;min-width:160px;">
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Box name</div>
         <input style="width:100%;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:inherit;font-size:13px;color:var(--ink);background:var(--white);outline:none;" value="${box.name||''}" placeholder="e.g. Reason for cover" oninput="updateBoxField('${box.id}','name',this.value)"/>
       </div>
-      <div style="flex:1;min-width:160px;">
+      <div style="flex:1;min-width:0;max-width:100%;">
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Maps to PDF field</div>
         <select class="mapping-select" onchange="updateBoxField('${box.id}','pdfField',this.value)">
           <option value="">— not mapped —</option>
