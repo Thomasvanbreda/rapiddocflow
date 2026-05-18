@@ -831,12 +831,9 @@ async function startCheckout(){
     form.action='https://www.payfast.co.za/eng/process';
     form.style.display='none';
     Object.entries(data.fields).forEach(([k,v])=>{
-      // Only submit fields that have values — must match what was signed
-      if(v !== '' && v !== null && v !== undefined){
-        const input=document.createElement('input');
-        input.type='hidden'; input.name=k; input.value=v;
-        form.appendChild(input);
-      }
+      const input=document.createElement('input');
+      input.type='hidden'; input.name=k; input.value=v;
+      form.appendChild(input);
     });
     document.body.appendChild(form);
     form.submit();
@@ -1044,11 +1041,26 @@ function buildSegmentHTML(boxId,seg,si){
       // Show options textarea for dropdown AND checkbox
       const needsOpts = col.type==='dropdown' || col.type==='checkbox';
       const optsLabel = col.type==='checkbox' ? 'Checkbox options (one per line):' : 'Dropdown options (one per line):';
-      const optsExtra = needsOpts ? `
-        <div class="tabular-col-opts-wrap">
-          <div class="tabular-col-opts-label">${optsLabel}</div>
+      let optsExtra = '';
+      if(col.type==='dropdown'){
+        optsExtra=`<div class="tabular-col-opts-wrap">
+          <div class="tabular-col-opts-label">Dropdown options (one per line):</div>
           <textarea class="tabular-col-opts" rows="3" placeholder="Option 1&#10;Option 2&#10;Option 3" oninput="updateTabularCol('${boxId}','${seg.id}',${ci},'options',this.value)">${escHtml((col.options||[]).join('\n'))}</textarea>
-        </div>` : '';
+        </div>`;
+      } else if(col.type==='checkbox'){
+        const cbOpts=(col.checkboxOptions||[]);
+        const cbRows=cbOpts.map((o,oi)=>`
+          <div class="checkbox-opt-row">
+            <input class="checkbox-opt-label" value="${escHtml(o.label||'')}" placeholder="Label" oninput="updateTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi},'label',this.value)"/>
+            <input class="checkbox-opt-text" value="${escHtml(o.text||'')}" placeholder="Text to insert when checked..." oninput="updateTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi},'text',this.value)"/>
+            <span class="checkbox-opt-del" onclick="deleteTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi})">×</span>
+          </div>`).join('');
+        optsExtra=`<div class="tabular-col-opts-wrap">
+          <div class="tabular-col-opts-label">Checkbox options:</div>
+          <div class="checkbox-opts-editor">${cbRows}</div>
+          <button class="btn-add-opt" style="margin-top:4px;" onclick="addTabularColCheckboxOpt('${boxId}','${seg.id}',${ci})">+ Add option</button>
+        </div>`;
+      }
       return `<div class="tabular-col-card" id="tabcol-${seg.id}-${ci}">
         <div class="tabular-col-top">
           <div class="tabular-col-num">${ci+1}</div>
@@ -1081,6 +1093,33 @@ function buildSegmentHTML(boxId,seg,si){
 }
 
 // ── CHECKBOX OPTION MANAGEMENT ──────────────────────────────────────────────
+function addTabularColCheckboxOpt(boxId, segId, ci) {
+  const box=boxes.find(b=>b.id===boxId);
+  const seg=box?.segments.find(s=>s.id===segId);
+  if(!seg) return;
+  const col=seg.tabularColumns[ci];
+  if(!col) return;
+  if(!col.checkboxOptions) col.checkboxOptions=[];
+  col.checkboxOptions.push({label:'',text:''});
+  rerenderBoxes();
+}
+function updateTabularColCheckboxOpt(boxId, segId, ci, oi, field, value) {
+  const box=boxes.find(b=>b.id===boxId);
+  const seg=box?.segments.find(s=>s.id===segId);
+  if(!seg) return;
+  const col=seg.tabularColumns[ci];
+  if(!col||!col.checkboxOptions||!col.checkboxOptions[oi]) return;
+  col.checkboxOptions[oi][field]=value;
+}
+function deleteTabularColCheckboxOpt(boxId, segId, ci, oi) {
+  const box=boxes.find(b=>b.id===boxId);
+  const seg=box?.segments.find(s=>s.id===segId);
+  if(!seg) return;
+  const col=seg.tabularColumns[ci];
+  if(!col||!col.checkboxOptions) return;
+  col.checkboxOptions.splice(oi,1);
+  rerenderBoxes();
+}
 function addCheckboxOpt(boxId, segId) {
   const tpl=getTemplate(); const box=tpl.boxes.find(b=>b.id===boxId); const seg=box&&box.segments.find(s=>s.id===segId); if(!seg) return;
   if(!seg.checkboxOptions) seg.checkboxOptions=[];
@@ -1339,9 +1378,17 @@ function renderTabularRows(boxId, segId, seg){
         const opts=(col.options||[]).map(o=>`<option value="${escHtml(o)}" ${val===o?'selected':''}>${escHtml(o)}</option>`).join('');
         cellInput=`<select class="fill-input tabular-fill-col-input" onchange="recordTabularCell('${boxId}','${segId}',${ri},${ci},this.value)"><option value="">Select...</option>${opts}</select>`;
       } else if(col.type==='checkbox'){
-        const opts=(col.options||[]).map((o,oi)=>{
+        const opts=(col.checkboxOptions||col.options||[]).map((o,oi)=>{
+          const label=typeof o==='object'?o.label:o;
+          const text=typeof o==='object'?o.text:'';
           const checked=Array.isArray(val)&&val.includes(oi);
-          return `<div class="checkbox-fill-item ${checked?'checked':''}" style="padding:6px 10px;" onclick="recordTabularCheckbox('${boxId}','${segId}',${ri},${ci},${oi},this)"><input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();recordTabularCheckbox('${boxId}','${segId}',${ri},${ci},${oi},this.closest('.checkbox-fill-item'))"/><span style="font-size:13px;">${escHtml(o)}</span></div>`;
+          return `<div class="checkbox-fill-item ${checked?'checked':''}" style="padding:6px 10px;" onclick="recordTabularCheckbox('${boxId}','${segId}',${ri},${ci},${oi},this)">
+            <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();recordTabularCheckbox('${boxId}','${segId}',${ri},${ci},${oi},this.closest('.checkbox-fill-item'))"/>
+            <div>
+              <div class="checkbox-fill-label">${escHtml(label)}</div>
+              ${text?`<div class="checkbox-fill-text">${escHtml(text)}</div>`:''}
+            </div>
+          </div>`;
         }).join('');
         cellInput=`<div class="checkbox-fill-list">${opts}</div>`;
       } else if(col.type==='number'){
