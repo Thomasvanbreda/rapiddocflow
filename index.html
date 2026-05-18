@@ -880,7 +880,34 @@ async function startCheckout(){
   }
 }
 async function getPDFFields(buf){try{const{PDFDocument}=PDFLib;const d=await PDFDocument.load(buf,{ignoreEncryption:true});return d.getForm().getFields().map(f=>f.getName());}catch{return[];}}
-async function getPDFCheckboxFields(buf){try{const{PDFDocument,PDFCheckBox}=PDFLib;const d=await PDFDocument.load(buf,{ignoreEncryption:true});return d.getForm().getFields().filter(f=>f instanceof PDFCheckBox).map(f=>f.getName());}catch{return[];}}
+async function getPDFCheckboxFields(buf){
+  try{
+    const{PDFDocument,PDFCheckBox,PDFRadioGroup}=PDFLib;
+    const d=await PDFDocument.load(buf,{ignoreEncryption:true});
+    const form=d.getForm();
+    const fields=form.getFields();
+    // Include PDFCheckBox and any field whose widget has a /Btn flag (checkbox-like)
+    return fields.filter(f=>{
+      if(f instanceof PDFCheckBox) return true;
+      // Also catch fields that are checkboxes stored as PDFRadioGroup with single option
+      try{
+        const ft=f.acroField.dict.lookup(PDFLib.PDFName.of('FT'));
+        if(ft&&ft.toString()==='/Btn'){
+          const ff=f.acroField.dict.lookup(PDFLib.PDFName.of('Ff'));
+          // Bit 16 = pushbutton (exclude), bit 15 = radio (exclude single-value radios carefully)
+          if(ff){
+            const flags=ff.asNumber();
+            const isPushButton=(flags>>16)&1;
+            const isRadio=(flags>>15)&1;
+            if(!isPushButton&&!isRadio) return true; // plain checkbox
+          } else {
+            return true; // no flags = checkbox
+          }
+        }
+      }catch(e){}
+      return false;
+    }).map(f=>f.getName());
+  }catch{return[];}}
 function closeModal(){document.getElementById('new-tpl-modal').classList.remove('open');pendingPdfBytes=null;}
 async function confirmNewTemplate(){
   const name=document.getElementById('new-tpl-name').value.trim();if(!name)return;
@@ -1278,19 +1305,21 @@ function buildMultiCheckBoxEl(box,bi){
   const entries=box.mcbEntries||[];
   const isOpen=box.open!==false;
 
-  const checkFieldOpts=checkFields.map(f=>`<option value="${escHtml(f)}">${escHtml(f)}</option>`).join('');
+  const checkFieldOpts=useFields.map(f=>`<option value="${escHtml(f)}">${escHtml(f)}</option>`).join('');
 
   const entryRows=entries.map((entry,ei)=>`
     <div class="mcb-entry-row" id="mcbrow-${box.id}-${ei}">
       <input class="mcb-entry-name" value="${escHtml(entry.name||'')}" placeholder="Checkbox label..." oninput="updateMcbEntry('${box.id}',${ei},'name',this.value)"/>
       <select class="mapping-select" style="flex:1.2;min-width:0;" onchange="updateMcbEntry('${box.id}',${ei},'pdfField',this.value)">
         <option value="">— select checkbox field —</option>
-        ${checkFields.map(f=>`<option value="${escHtml(f)}" ${entry.pdfField===f?'selected':''}>${escHtml(f)}</option>`).join('')}
+        ${useFields.map(f=>`<option value="${escHtml(f)}" ${entry.pdfField===f?'selected':''}>${escHtml(f)}</option>`).join('')}
       </select>
       <span class="mcb-entry-del" onclick="deleteMcbEntry('${box.id}',${ei})">×</span>
     </div>`).join('');
 
-  const noFields=checkFields.length===0?`<div style="font-size:12px;color:#C2410C;background:#FFF7ED;padding:8px 12px;border-radius:8px;border:1px solid #FED7AA;">⚠️ No checkbox fields detected in this PDF. Make sure your PDF has checkbox form fields.</div>`:'';
+  // Fall back to all fields if no checkbox fields detected
+  const useFields=checkFields.length>0?checkFields:(tpl.pdfFields||[]);
+  const noFields=checkFields.length===0&&useFields.length>0?`<div style="font-size:12px;color:#92400E;background:#FFFBEB;padding:8px 12px;border-radius:8px;border:1px solid #FCD34D;margin-bottom:4px;">ℹ️ No checkbox fields auto-detected — showing all PDF fields. Re-upload your PDF to refresh, or select manually.</div>`:'';
 
   const el=document.createElement('div');
   el.className='box-card';
