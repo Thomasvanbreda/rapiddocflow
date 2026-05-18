@@ -32,11 +32,6 @@ exports.handler = async (event) => {
     }
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
 
-    // Exact order per PayFast docs:
-    // 1. Merchant details
-    // 2. Customer details  
-    // 3. Transaction details (including custom_str BEFORE subscription fields)
-    // 4. Subscription fields
     const data = {
       merchant_id:       PAYFAST_MERCHANT_ID,
       merchant_key:      PAYFAST_MERCHANT_KEY,
@@ -46,13 +41,13 @@ exports.handler = async (event) => {
       name_first:        (firstName || '').trim(),
       name_last:         (lastName || '').trim(),
       email_address:     email.trim(),
-      amount:            '49.99',
+      amount:            '5.00',           // TEST: R5 instead of R49.99
       item_name:         'SmartAnswerPDF Pro - Monthly Subscription',
       custom_str1:       userId,
       subscription_type: '1',
       billing_date:      new Date().toISOString().split('T')[0],
-      recurring_amount:  '49.99',
-      frequency:         '3',
+      recurring_amount:  '5.00',           // TEST: R5 recurring
+      frequency:         '1',              // TEST: Daily instead of Monthly
       cycles:            '0',
     };
 
