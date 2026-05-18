@@ -823,7 +823,7 @@ async function startCheckout(){
     // Build and submit PayFast form
     const form=document.createElement('form');
     form.method='POST';
-    form.action='https://sandbox.payfast.co.za/eng/process';
+    form.action='https://www.payfast.co.za/eng/process';
     form.style.display='none';
     Object.entries(data.fields).forEach(([k,v])=>{
       const input=document.createElement('input');

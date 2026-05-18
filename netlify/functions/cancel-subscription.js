@@ -7,8 +7,8 @@ const SUPABASE_URL = 'https://dvuatrfhvwnmmqxdsaxx.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 // Sandbox: 'sandbox.payfast.co.za' — Live: 'api.payfast.co.za'
-const PAYFAST_API_HOST = 'sandbox.payfast.co.za';
-const IS_SANDBOX = true; // Set to false when going live
+const PAYFAST_API_HOST = 'api.payfast.co.za';
+const IS_SANDBOX = false; // Set to false when going live
 
 function generateAPISignature(data, passphrase) {
   let str = Object.keys(data)
