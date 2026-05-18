@@ -1292,8 +1292,8 @@ function buildMultiTableBoxEl(box,bi){
       const rh=rowHeaders[r]||'Row '+(r+1);
       const ch=colHeaders[c2]||'Col '+(c2+1);
       return `<div style="display:flex;flex-direction:column;gap:3px;">
-        <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;">${escHtml(rh)} × ${escHtml(ch)}</div>
-        <select class="mapping-select" style="font-size:11px;padding:5px 8px;" onchange="updateMttField('${box.id}',${r},${c2},this.value)">
+        <div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(rh)} × ${escHtml(ch)}</div>
+        <select class="mapping-select" style="font-size:11px;padding:4px 6px;width:100%;min-width:0;max-width:100%;" onchange="updateMttField('${box.id}',${r},${c2},this.value)">
           <option value="">— not mapped —</option>
           ${pdfFields.map(f=>`<option value="${escHtml(f)}" ${fname===f?'selected':''}>${escHtml(f)}</option>`).join('')}
         </select>
@@ -1344,7 +1344,9 @@ function buildMultiTableBoxEl(box,bi){
       </div>
       <div>
         <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">PDF field mapping — one field per cell</div>
-        <div style="display:grid;grid-template-columns:repeat(${Math.min(cols,3)},1fr);gap:8px;">${gridCells}</div>
+        <div style="overflow-x:auto;">
+          <div style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:6px;min-width:0;">${gridCells}</div>
+        </div>
       </div>
     </div>`;
   return el;
