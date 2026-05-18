@@ -1095,30 +1095,38 @@ function buildSegmentHTML(boxId,seg,si){
 
 // ── CHECKBOX OPTION MANAGEMENT ──────────────────────────────────────────────
 function addTabularColCheckboxOpt(boxId, segId, ci) {
-  const box=boxes.find(b=>b.id===boxId);
-  const seg=box?.segments.find(s=>s.id===segId);
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  const seg=box&&box.segments.find(s=>s.id===segId);
   if(!seg) return;
   const col=seg.tabularColumns[ci];
   if(!col) return;
   if(!col.checkboxOptions) col.checkboxOptions=[];
   col.checkboxOptions.push({label:'',text:''});
+  saveTemplate(tpl);
   rerenderBoxes();
 }
 function updateTabularColCheckboxOpt(boxId, segId, ci, oi, field, value) {
-  const box=boxes.find(b=>b.id===boxId);
-  const seg=box?.segments.find(s=>s.id===segId);
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  const seg=box&&box.segments.find(s=>s.id===segId);
   if(!seg) return;
   const col=seg.tabularColumns[ci];
-  if(!col||!col.checkboxOptions||!col.checkboxOptions[oi]) return;
+  if(!col) return;
+  if(!col.checkboxOptions) col.checkboxOptions=[];
+  if(!col.checkboxOptions[oi]) col.checkboxOptions[oi]={label:'',text:''};
   col.checkboxOptions[oi][field]=value;
+  saveTemplate(tpl);
 }
 function deleteTabularColCheckboxOpt(boxId, segId, ci, oi) {
-  const box=boxes.find(b=>b.id===boxId);
-  const seg=box?.segments.find(s=>s.id===segId);
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  const seg=box&&box.segments.find(s=>s.id===segId);
   if(!seg) return;
   const col=seg.tabularColumns[ci];
   if(!col||!col.checkboxOptions) return;
   col.checkboxOptions.splice(oi,1);
+  saveTemplate(tpl);
   rerenderBoxes();
 }
 function addCheckboxOpt(boxId, segId) {
