@@ -4,14 +4,24 @@ const PAYFAST_MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID;
 const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
+// Matches PayFast's PHP urlencode() exactly:
+// - spaces become +
+// - other special chars become %XX in UPPERCASE
+function pfEncode(str) {
+  return encodeURIComponent(String(str))
+    .replace(/%20/g, '+')        // spaces → +
+    .replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%[0-9a-f]{2}/g, m => m.toUpperCase()); // ensure uppercase hex
+}
+
 function generateSignature(data, passphrase) {
-  // Skip empty fields, use + for spaces
+  // Skip empty fields, exact order, + for spaces, uppercase hex
   let str = Object.keys(data)
     .filter(k => k !== 'signature' && data[k] !== '' && data[k] !== null && data[k] !== undefined)
-    .map(k => `${k}=${encodeURIComponent(String(data[k])).replace(/%20/g, '+')}`)
+    .map(k => `${k}=${pfEncode(data[k])}`)
     .join('&');
   if (passphrase && passphrase.trim() !== '') {
-    str += `&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`;
+    str += `&passphrase=${pfEncode(passphrase.trim())}`;
   }
   console.log('Signature string:', str);
   return crypto.createHash('md5').update(str).digest('hex');
