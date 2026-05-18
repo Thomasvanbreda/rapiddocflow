@@ -5,18 +5,13 @@ const PAYFAST_MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 
 function generateSignature(data, passphrase) {
-  // Build string from all non-empty fields excluding signature
-  const pfOutput = Object.keys(data)
+  let str = Object.keys(data)
     .filter(k => k !== 'signature' && data[k] !== '' && data[k] !== null && data[k] !== undefined)
-    .map(k => `${k}=${encodeURIComponent(String(data[k])).replace(/%20/g, '+')}`)
+    .map(k => `${k}=${encodeURIComponent(String(data[k]))}`)
     .join('&');
-
-  // Append passphrase if set
-  let str = pfOutput;
   if (passphrase && passphrase.trim() !== '') {
-    str += `&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`;
+    str += `&passphrase=${encodeURIComponent(passphrase.trim())}`;
   }
-
   console.log('Signature string:', str);
   return crypto.createHash('md5').update(str).digest('hex');
 }
@@ -34,14 +29,8 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
     }
 
-    // Use passphrase trimmed — avoid whitespace issues from copy/paste in Netlify
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
 
-    console.log('MERCHANT_ID:', PAYFAST_MERCHANT_ID);
-    console.log('MERCHANT_KEY:', PAYFAST_MERCHANT_KEY ? '***set***' : 'NOT SET');
-    console.log('PASSPHRASE set:', passphrase.length > 0);
-
-    // Fields in EXACT order PayFast requires
     const data = {
       merchant_id:       PAYFAST_MERCHANT_ID,
       merchant_key:      PAYFAST_MERCHANT_KEY,
@@ -71,7 +60,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ fields: data })
     };
   } catch (err) {
-    console.error('Checkout error:', err.message, err.stack);
+    console.error('Checkout error:', err.message);
     return { statusCode: 500, body: JSON.stringify({ error: 'Server error', detail: err.message }) };
   }
 };
