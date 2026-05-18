@@ -1051,14 +1051,15 @@ function buildSegmentHTML(boxId,seg,si){
         const cbOpts=(col.checkboxOptions||[]);
         const cbRows=cbOpts.map((o,oi)=>`
           <div class="checkbox-opt-row">
-            <input class="checkbox-opt-label" value="${escHtml(o.label||'')}" placeholder="Label" oninput="updateTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi},'label',this.value)"/>
+            <input class="checkbox-opt-label" value="${escHtml(o.label||'')}" placeholder="Label (short)" oninput="updateTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi},'label',this.value)"/>
             <input class="checkbox-opt-text" value="${escHtml(o.text||'')}" placeholder="Text to insert when checked..." oninput="updateTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi},'text',this.value)"/>
             <span class="checkbox-opt-del" onclick="deleteTabularColCheckboxOpt('${boxId}','${seg.id}',${ci},${oi})">×</span>
           </div>`).join('');
         optsExtra=`<div class="tabular-col-opts-wrap">
-          <div class="tabular-col-opts-label">Checkbox options:</div>
+          <div class="tabular-col-opts-label">Each option has a <b>label</b> (shown to user) and <b>text</b> (inserted into sentence):</div>
           <div class="checkbox-opts-editor">${cbRows}</div>
-          <button class="btn-add-opt" style="margin-top:4px;" onclick="addTabularColCheckboxOpt('${boxId}','${seg.id}',${ci})">+ Add option</button>
+          <button class="btn-add-opt" onclick="addTabularColCheckboxOpt('${boxId}','${seg.id}',${ci})">+ Add option</button>
+          <div style="font-size:11px;color:var(--ink3);margin-top:6px;">Join selected items with: <input style="padding:3px 6px;border:1px solid var(--rule);border-radius:4px;font-size:11px;width:80px;" value="${escHtml(col.joinWith||', ')}" oninput="updateTabularCol('${boxId}','${seg.id}',${ci},'joinWith',this.value)" placeholder=", "/></div>
         </div>`;
       }
       return `<div class="tabular-col-card" id="tabcol-${seg.id}-${ci}">
