@@ -11,7 +11,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body);
-    const { userId, email, firstName, lastName } = body;
+    const { userId, email, firstName } = body;
 
     if (!userId || !email) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
@@ -20,8 +20,7 @@ exports.handler = async (event) => {
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
     const billingDate = new Date().toISOString().split('T')[0];
 
-    // ALL fields in exact PayFast order — always included, even if empty
-    // This ensures form submission and signature always match exactly
+    // name_last removed entirely — it's optional and was causing signature mismatches
     const fields = [
       ['merchant_id',       PAYFAST_MERCHANT_ID],
       ['merchant_key',      PAYFAST_MERCHANT_KEY],
@@ -29,7 +28,6 @@ exports.handler = async (event) => {
       ['cancel_url',        'https://smartanswerpdf.com?payment=cancelled'],
       ['notify_url',        'https://smartanswerpdf.com/.netlify/functions/payfast-itn'],
       ['name_first',        firstName || ''],
-      ['name_last',         lastName || ''],
       ['email_address',     email],
       ['amount',            '49.99'],
       ['item_name',         'SmartAnswerPDF Pro - Monthly Subscription'],
@@ -41,7 +39,6 @@ exports.handler = async (event) => {
       ['custom_str1',       userId],
     ];
 
-    // Signature includes ALL fields (even empty) — matches exactly what form submits
     let sigStr = fields
       .map(([k, v]) => `${k}=${encodeURIComponent(String(v ?? '')).replace(/%20/g, '+')}`)
       .join('&');
@@ -55,7 +52,6 @@ exports.handler = async (event) => {
     const signature = crypto.createHash('md5').update(sigStr).digest('hex');
     console.log('Generated signature:', signature);
 
-    // Build data object — all fields included
     const data = {};
     fields.forEach(([k, v]) => { data[k] = v ?? ''; });
     data.signature = signature;
