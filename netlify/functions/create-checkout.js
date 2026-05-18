@@ -11,7 +11,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body);
-    const { userId, email, firstName } = body;
+    const { userId, email } = body;
 
     if (!userId || !email) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
@@ -20,14 +20,13 @@ exports.handler = async (event) => {
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
     const billingDate = new Date().toISOString().split('T')[0];
 
-    // name_last removed entirely — it's optional and was causing signature mismatches
+    // Minimal fields only — no name fields at all
     const fields = [
       ['merchant_id',       PAYFAST_MERCHANT_ID],
       ['merchant_key',      PAYFAST_MERCHANT_KEY],
       ['return_url',        'https://smartanswerpdf.com?payment=success'],
       ['cancel_url',        'https://smartanswerpdf.com?payment=cancelled'],
       ['notify_url',        'https://smartanswerpdf.com/.netlify/functions/payfast-itn'],
-      ['name_first',        firstName || ''],
       ['email_address',     email],
       ['amount',            '49.99'],
       ['item_name',         'SmartAnswerPDF Pro - Monthly Subscription'],
