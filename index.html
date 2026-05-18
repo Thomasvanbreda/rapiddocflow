@@ -275,6 +275,30 @@
   .btn-remove-row-inline:hover { border-color: var(--danger); color: var(--danger); background: #FEF2F2; }
   .btn-remove-row-inline:disabled { opacity: 0.3; cursor: not-allowed; }
   .tabular-fill-preview { margin-top: 12px; padding: 12px 16px; background: #F0FDF4; border-radius: var(--radius); font-size: 12px; color: #166534; line-height: 2; border-left: 3px solid #166534; white-space: pre-line; font-family: monospace; }
+
+  /* ── MULTI TEXT TABLE ── */
+  .mtt-config { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .mtt-dims { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mtt-dim-label { font-size: 12px; color: var(--ink3); font-weight: 500; }
+  .mtt-dim-input { padding: 5px 8px; border: 1.5px solid var(--rule); border-radius: 8px; font-family: inherit; font-size: 13px; width: 55px; color: var(--ink); outline: none; text-align: center; }
+  .mtt-dim-input:focus { border-color: var(--accent); }
+  .mtt-headers { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .mtt-header-row { display: flex; gap: 6px; align-items: center; }
+  .mtt-header-label { font-size: 11px; font-weight: 700; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.05em; width: 80px; flex-shrink: 0; }
+  .mtt-header-input { flex: 1; padding: 6px 9px; border: 1.5px solid var(--rule); border-radius: 8px; font-family: inherit; font-size: 12px; color: var(--ink); outline: none; background: var(--white); }
+  .mtt-header-input:focus { border-color: var(--accent); }
+  .mtt-field-grid { display: grid; gap: 4px; margin-top: 6px; }
+  .mtt-field-cell { padding: 5px 7px; border: 1.5px solid var(--rule); border-radius: 6px; font-size: 10px; color: var(--ink3); background: var(--surface); }
+  .badge-mtt { background: #FFF7ED; color: #C2410C; border: 1.5px solid #FED7AA; }
+  .fill-mtt-grid { display: grid; gap: 0; border: 1.5px solid var(--rule); border-radius: 10px; overflow: hidden; margin-top: 4px; }
+  .fill-mtt-header-row { display: contents; }
+  .fill-mtt-col-header { background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 8px 10px; text-align: center; }
+  .fill-mtt-row-header { background: var(--surface); font-size: 11px; font-weight: 700; color: var(--ink2); padding: 8px 10px; display: flex; align-items: center; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .fill-mtt-cell { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .fill-mtt-cell:last-child { border-right: none; }
+  .fill-mtt-input { width: 100%; padding: 8px 10px; border: none; outline: none; font-family: inherit; font-size: 13px; color: var(--ink); background: var(--white); }
+  .fill-mtt-input:focus { background: var(--accent-light); }
+  .mtt-corner { background: var(--accent); border-right: 1px solid rgba(255,255,255,0.2); border-bottom: 1px solid rgba(255,255,255,0.2); }
   /* Legacy classes kept for compatibility */
   .tabular-data-rows { display: flex; flex-direction: column; gap: 10px; }
 
@@ -475,7 +499,7 @@
           </button>
         </div>
         <div id="boxes-list"></div>
-        <button class="add-box-btn" onclick="addBox()">+ Add new box</button>
+        <button class="add-box-btn" onclick="addBox()">+ Add new box</button><button class="add-box-btn" style="background:#FFF7ED;color:#C2410C;border-color:#FED7AA;" onclick="addMultiTableBox()">+ Multi Text Table</button>
       </div>
     </div>
   </div>
@@ -973,6 +997,8 @@ function renderBoxes(){
 }
 
 function buildBoxEl(box,bi,pdfFields){
+  // Multi Text Table box has its own builder
+  if(box.boxType==='multitable') return buildMultiTableBoxEl(box,bi);
   const div=document.createElement('div');div.className='box-card';div.id='box-'+box.id;
   const isOpen=box.open!==false;
   div.innerHTML=`<div class="box-header" onclick="toggleBox('${box.id}')">
@@ -1212,6 +1238,193 @@ async function toggleBox(boxId){
   if(body)body.classList.toggle('hidden',!box.open);if(chev)chev.classList.toggle('open',box.open);
 }
 
+// ── MULTI TEXT TABLE BOX ────────────────────────────────────────────────────
+
+async function addMultiTableBox(){
+  const tpl=getTemplate();
+  const box={
+    id:'box_'+Date.now(),
+    boxType:'multitable',
+    name:'Multi Text Table',
+    mttRows:2,
+    mttCols:2,
+    mttRowHeaders:[],
+    mttColHeaders:[],
+    mttFields:[], // [row][col] = pdfFieldName
+    open:true
+  };
+  // Init empty field grid
+  box.mttFields=Array.from({length:box.mttRows},()=>Array(box.mttCols).fill(''));
+  tpl.boxes.push(box);
+  await saveTemplateNow(tpl);
+  const c=document.getElementById('boxes-list');
+  c.appendChild(buildMultiTableBoxEl(box,tpl.boxes.length-1));
+}
+
+function buildMultiTableBoxEl(box,bi){
+  const rows=box.mttRows||1, cols=box.mttCols||1;
+  const fields=box.mttFields||[];
+  const rowHeaders=box.mttRowHeaders||[];
+  const colHeaders=box.mttColHeaders||[];
+
+  // Row header inputs
+  const rowHeaderInputs=Array.from({length:rows},(_,r)=>
+    `<div class="mtt-header-row">
+      <div class="mtt-header-label">Row ${r+1}</div>
+      <input class="mtt-header-input" value="${escHtml(rowHeaders[r]||'')}" placeholder="Row ${r+1} label..." oninput="updateMttHeader('${box.id}','row',${r},this.value)"/>
+    </div>`).join('');
+
+  // Col header inputs
+  const colHeaderInputs=Array.from({length:cols},(_,c2)=>
+    `<div class="mtt-header-row">
+      <div class="mtt-header-label">Col ${c2+1}</div>
+      <input class="mtt-header-input" value="${escHtml(colHeaders[c2]||'')}" placeholder="Column ${c2+1} label..." oninput="updateMttHeader('${box.id}','col',${c2},this.value)"/>
+    </div>`).join('');
+
+  // Field mapping grid
+  const gridCells=Array.from({length:rows},(_,r)=>
+    Array.from({length:cols},(_,c2)=>{
+      const fname=(fields[r]&&fields[r][c2])||'';
+      return `<input class="mtt-header-input" style="font-size:11px;" value="${escHtml(fname)}" placeholder="PDF field name..." oninput="updateMttField('${box.id}',${r},${c2},this.value)"/>`;
+    }).join('')
+  ).join('');
+
+  const el=document.createElement('div');
+  el.className='box';
+  el.id='box-'+box.id;
+  el.innerHTML=`
+    <div class="box-header" onclick="toggleBox('${box.id}')">
+      <div class="box-num">${bi+1}</div>
+      <div class="box-title-wrap">
+        <div class="box-title">${escHtml(box.name||'Multi Text Table')}</div>
+        <div class="box-field-tag">→ ${rows}×${cols} table — ${rows*cols} PDF fields</div>
+      </div>
+      <div class="box-actions">
+        <button class="box-del-btn" onclick="event.stopPropagation();deleteBox('${box.id}')">Delete</button>
+        <span class="box-chevron">${box.open!==false?'▲':'▼'}</span>
+      </div>
+    </div>
+    <div class="box-body" id="boxbody-${box.id}" style="${box.open===false?'display:none':''}">
+      <div class="mtt-config">
+        <div class="mtt-dims">
+          <span class="mtt-dim-label">Rows:</span>
+          <input type="number" class="mtt-dim-input" min="1" max="20" value="${rows}" oninput="updateMttDim('${box.id}','rows',this.value)"/>
+          <span class="mtt-dim-label">Columns:</span>
+          <input type="number" class="mtt-dim-input" min="1" max="20" value="${cols}" oninput="updateMttDim('${box.id}','cols',this.value)"/>
+        </div>
+        <div style="font-size:12px;color:var(--ink3);font-weight:600;margin-top:4px;">Box name:</div>
+        <input class="mtt-header-input" value="${escHtml(box.name||'')}" placeholder="Box name..." oninput="updateMttBoxName('${box.id}',this.value)"/>
+        <div style="font-size:12px;color:var(--ink3);font-weight:600;margin-top:4px;">Row labels:</div>
+        <div class="mtt-headers">${rowHeaderInputs}</div>
+        <div style="font-size:12px;color:var(--ink3);font-weight:600;margin-top:4px;">Column labels:</div>
+        <div class="mtt-headers">${colHeaderInputs}</div>
+        <div style="font-size:12px;color:var(--ink3);font-weight:600;margin-top:4px;">PDF field mapping — one field name per cell:</div>
+        <div class="mtt-field-grid" style="grid-template-columns:repeat(${cols},1fr);gap:4px;">
+          ${Array.from({length:rows},(_,r)=>Array.from({length:cols},(_,c2)=>{
+            const fname=(fields[r]&&fields[r][c2])||'';
+            return `<div><div style="font-size:10px;color:var(--ink3);margin-bottom:2px;">R${r+1}C${c2+1}</div><input class="mtt-header-input" style="font-size:11px;" value="${escHtml(fname)}" placeholder="Field name..." oninput="updateMttField('${box.id}',${r},${c2},this.value)"/></div>`;
+          }).join('')).join('')}
+        </div>
+      </div>
+    </div>`;
+  return el;
+}
+
+function buildMultiTableFillHTML(box,bi){
+  const rows=box.mttRows||1, cols=box.mttCols||1;
+  const rowHeaders=box.mttRowHeaders||[];
+  const colHeaders=box.mttColHeaders||[];
+  const hasColHeaders=colHeaders.some(h=>h&&h.trim());
+  const hasRowHeaders=rowHeaders.some(h=>h&&h.trim());
+  const totalCols=hasRowHeaders?cols+1:cols;
+
+  let gridStyle=`grid-template-columns:${hasRowHeaders?'auto ':''} repeat(${cols},1fr);`;
+
+  let html=`<div class="fill-box-title">Box ${bi+1}: ${escHtml(box.name||'Multi Text Table')}</div>`;
+  html+=`<div class="fill-mtt-grid" style="${gridStyle}">`;
+
+  // Header row
+  if(hasColHeaders){
+    if(hasRowHeaders) html+=`<div class="fill-mtt-col-header mtt-corner"></div>`;
+    colHeaders.slice(0,cols).forEach((h,c2)=>{
+      html+=`<div class="fill-mtt-col-header">${escHtml(h||'Col '+(c2+1))}</div>`;
+    });
+    // Fill missing col headers
+    for(let c2=colHeaders.length;c2<cols;c2++){
+      html+=`<div class="fill-mtt-col-header">Col ${c2+1}</div>`;
+    }
+  }
+
+  // Data rows
+  for(let r=0;r<rows;r++){
+    if(hasRowHeaders){
+      html+=`<div class="fill-mtt-row-header">${escHtml(rowHeaders[r]||'Row '+(r+1))}</div>`;
+    }
+    for(let c2=0;c2<cols;c2++){
+      html+=`<div class="fill-mtt-cell"><input class="fill-mtt-input" placeholder="..." oninput="recordMttAnswer('${box.id}',${r},${c2},this.value)"/></div>`;
+    }
+  }
+  html+=`</div>`;
+  return html;
+}
+
+function updateMttDim(boxId, dim, val){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box) return;
+  const n=Math.max(1,Math.min(20,parseInt(val)||1));
+  if(dim==='rows') box.mttRows=n;
+  else box.mttCols=n;
+  // Resize field grid
+  const rows=box.mttRows||1, cols=box.mttCols||1;
+  if(!box.mttFields) box.mttFields=[];
+  box.mttFields=Array.from({length:rows},(_,r)=>
+    Array.from({length:cols},(_,c2)=>
+      (box.mttFields[r]&&box.mttFields[r][c2])||''));
+  saveTemplate(tpl);
+  rerenderBoxes();
+}
+
+function updateMttHeader(boxId, type, idx, val){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box) return;
+  if(type==='row'){
+    if(!box.mttRowHeaders) box.mttRowHeaders=[];
+    box.mttRowHeaders[idx]=val;
+  } else {
+    if(!box.mttColHeaders) box.mttColHeaders=[];
+    box.mttColHeaders[idx]=val;
+  }
+  saveTemplate(tpl);
+}
+
+function updateMttField(boxId, r, c2, val){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box) return;
+  if(!box.mttFields) box.mttFields=[];
+  if(!box.mttFields[r]) box.mttFields[r]=[];
+  box.mttFields[r][c2]=val;
+  saveTemplate(tpl);
+}
+
+function updateMttBoxName(boxId, val){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box) return;
+  box.name=val;
+  saveTemplate(tpl);
+  const titleEl=document.querySelector(`#box-${boxId} .box-title`);
+  if(titleEl) titleEl.textContent=val||'Multi Text Table';
+}
+
+function recordMttAnswer(boxId, r, c2, val){
+  if(!fillAnswers[boxId]) fillAnswers[boxId]={};
+  if(!fillAnswers[boxId][r]) fillAnswers[boxId][r]={};
+  fillAnswers[boxId][r][c2]=val;
+}
+
 async function addBox(){
   const tpl=getTemplate();
   const box={id:'box_'+Date.now(),name:'',pdfField:'',segments:[],open:true};
@@ -1266,6 +1479,12 @@ function openFillScreen(){
   const c=document.getElementById('fill-boxes'); c.innerHTML='';
   tpl.boxes.forEach((box,bi)=>{
     const div=document.createElement('div'); div.className='fill-box';
+    // Multi Text Table has its own fill renderer
+    if(box.boxType==='multitable'){
+      div.innerHTML=buildMultiTableFillHTML(box,bi);
+      c.appendChild(div);
+      return;
+    }
     let segsHTML='';
     box.segments.forEach(seg=>{
       if(seg.type==='chain'){
@@ -1549,6 +1768,24 @@ async function generatePDF(){
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const form=pdfDoc.getForm();
     tpl.boxes.forEach(box=>{
+      // Multi Text Table — write each cell to its own PDF field
+      if(box.boxType==='multitable'){
+        const rows=box.mttRows||1, cols=box.mttCols||1;
+        const answers=fillAnswers[box.id]||{};
+        for(let r=0;r<rows;r++){
+          for(let c2=0;c2<cols;c2++){
+            const fieldName=(box.mttFields&&box.mttFields[r]&&box.mttFields[r][c2])||'';
+            const val=(answers[r]&&answers[r][c2])||'';
+            if(!fieldName) continue;
+            try{
+              const tf=form.getTextField(fieldName);
+              tf.enableMultiline(); tf.setFontSize(9); tf.setText(val);
+              tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
+            }catch{ try{form.getDropdown(fieldName).select(val);}catch{} }
+          }
+        }
+        return;
+      }
       if(!box.pdfField)return;
       const assembled=box.segments.map(seg=>{
         if(seg.type==='chain') return seg.text||'';
