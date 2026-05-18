@@ -20,8 +20,8 @@ exports.handler = async (event) => {
     const passphrase = (PAYFAST_PASSPHRASE || '').trim();
     const billingDate = new Date().toISOString().split('T')[0];
 
-    // Build signature string manually in EXACT PayFast required order
-    // Only include fields with values — skip empty ones
+    // ALL fields in exact PayFast order — always included, even if empty
+    // This ensures form submission and signature always match exactly
     const fields = [
       ['merchant_id',       PAYFAST_MERCHANT_ID],
       ['merchant_key',      PAYFAST_MERCHANT_KEY],
@@ -41,12 +41,11 @@ exports.handler = async (event) => {
       ['custom_str1',       userId],
     ];
 
-    // Build signature string - skip empty values
-    const sigParts = fields
-      .filter(([k, v]) => v !== '' && v !== null && v !== undefined)
-      .map(([k, v]) => `${k}=${encodeURIComponent(String(v)).replace(/%20/g, '+')}`);
+    // Signature includes ALL fields (even empty) — matches exactly what form submits
+    let sigStr = fields
+      .map(([k, v]) => `${k}=${encodeURIComponent(String(v ?? '')).replace(/%20/g, '+')}`)
+      .join('&');
 
-    let sigStr = sigParts.join('&');
     if (passphrase) {
       sigStr += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`;
     }
@@ -56,9 +55,9 @@ exports.handler = async (event) => {
     const signature = crypto.createHash('md5').update(sigStr).digest('hex');
     console.log('Generated signature:', signature);
 
-    // Build the data object in same order for form submission
+    // Build data object — all fields included
     const data = {};
-    fields.forEach(([k, v]) => { if (v !== '' && v !== null && v !== undefined) data[k] = v; });
+    fields.forEach(([k, v]) => { data[k] = v ?? ''; });
     data.signature = signature;
 
     return {
