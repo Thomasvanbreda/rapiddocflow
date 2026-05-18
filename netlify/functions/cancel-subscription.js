@@ -5,28 +5,32 @@ const PAYFAST_MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID;
 const PAYFAST_PASSPHRASE = process.env.PAYFAST_PASSPHRASE;
 const SUPABASE_URL = 'https://dvuatrfhvwnmmqxdsaxx.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-// Sandbox: 'sandbox.payfast.co.za' — Live: 'api.payfast.co.za'
 const PAYFAST_API_HOST = 'api.payfast.co.za';
-const IS_SANDBOX = false; // Set to false when going live
+const IS_SANDBOX = false;
 
 function generateAPISignature(data, passphrase) {
-  let str = Object.keys(data)
+  // API signature uses ALPHABETICAL order (unlike checkout which uses doc order)
+  // Combine all data including passphrase, sort alphabetically, MD5
+  const combined = { ...data, passphrase };
+  let str = Object.keys(combined)
     .sort()
-    .map(k => `${k}=${encodeURIComponent(String(data[k] ?? '')).replace(/%20/g, '+')}`)
+    .filter(k => k !== 'signature')
+    .map(k => `${k}=${encodeURIComponent(String(combined[k])).replace(/%20/g, '+')}`)
     .join('&');
-  if (passphrase) str += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, '+')}`;
   return crypto.createHash('md5').update(str).digest('hex');
 }
 
-function payfastRequest(path, method, data) {
+function payfastRequest(path, method) {
   const timestamp = new Date().toISOString().split('.')[0];
-  const headers = {
+  const passphrase = (PAYFAST_PASSPHRASE || '').trim();
+
+  const headerData = {
     'merchant-id': PAYFAST_MERCHANT_ID,
-    'timestamp': timestamp,
-    'version': 'v1',
+    'timestamp':   timestamp,
+    'version':     'v1',
   };
-  headers['signature'] = generateAPISignature({ ...headers }, PAYFAST_PASSPHRASE);
+
+  const signature = generateAPISignature(headerData, passphrase);
 
   return new Promise((resolve, reject) => {
     const req = https.request({
@@ -34,8 +38,12 @@ function payfastRequest(path, method, data) {
       path,
       method,
       headers: {
-        ...headers,
+        'merchant-id':  PAYFAST_MERCHANT_ID,
+        'timestamp':    timestamp,
+        'version':      'v1',
+        'signature':    signature,
         'Content-Type': 'application/json',
+        'Content-Length': 0,
       }
     }, res => {
       let body = '';
@@ -43,7 +51,6 @@ function payfastRequest(path, method, data) {
       res.on('end', () => resolve({ status: res.statusCode, body }));
     });
     req.on('error', reject);
-    if (data && Object.keys(data).length) req.write(JSON.stringify(data));
     req.end();
   });
 }
@@ -88,7 +95,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing userId' }) };
     }
 
-    // 1. Get profile from Supabase
+    // Get profile
     const profileRes = await supabaseRequest('GET', `/rest/v1/profiles?id=eq.${userId}&select=payfast_token,subscription_date,subscription_status,subscription_source`);
     const profiles = JSON.parse(profileRes.body);
 
@@ -106,7 +113,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'No subscription token found' }) };
     }
 
-    // 2. Calculate end date (last billing date + 1 month)
+    // Calculate end date
     const subDate = new Date(profile.subscription_date);
     const now = new Date();
     const billingDay = subDate.getDate();
@@ -117,18 +124,14 @@ exports.handler = async (event) => {
     endDate = new Date(endDate.getFullYear(), endDate.getMonth() + 1, billingDay);
     endDate.setHours(23, 59, 59, 999);
 
-    // 3. Call PayFast cancel API
+    // Cancel with PayFast API
     const cancelRes = await payfastRequest(
       `/subscriptions/${profile.payfast_token}/cancel`,
-      'PUT',
-      {}
+      'PUT'
     );
 
     console.log('PayFast cancel response:', cancelRes.status, cancelRes.body);
 
-    // In sandbox, PayFast cancel API is unreliable and often fails.
-    // We treat any response (including errors) as acceptable during sandbox testing,
-    // and always update Supabase. In live mode, we enforce a 200/204 response.
     if (!IS_SANDBOX && cancelRes.status !== 200 && cancelRes.status !== 204) {
       console.error('PayFast cancel failed:', cancelRes.status, cancelRes.body);
       return {
@@ -137,7 +140,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 4. Update Supabase regardless (sandbox bypass above)
+    // Update Supabase
     await supabaseRequest('PATCH', `/rest/v1/profiles?id=eq.${userId}`, {
       subscription_status: 'cancelled',
       subscription_end_date: endDate.toISOString(),
