@@ -291,6 +291,9 @@
   .mtt-field-cell { padding: 5px 7px; border: 1.5px solid var(--rule); border-radius: 6px; font-size: 10px; color: var(--ink3); background: var(--surface); }
   .badge-mtt { background: #FFF7ED; color: #C2410C; border: 1.5px solid #FED7AA; }
   .badge-mcb { background: #F0FDF4; color: #166534; border: 1.5px solid #BBF7D0; }
+  .badge-af { background: #EFF6FF; color: #1D4ED8; border: 1.5px solid #BFDBFE; }
+  .af-field-row { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: var(--white); border: 1.5px solid var(--rule); border-radius: 10px; transition: border-color 0.15s; }
+  .af-field-row:hover { border-color: #BFDBFE; }
   .mcb-entry-row { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: var(--white); border: 1.5px solid var(--rule); border-radius: 10px; transition: border-color 0.15s; }
   .mcb-entry-row:hover { border-color: #BBF7D0; }
   .mcb-entry-name { flex: 1; padding: 6px 9px; border: 1.5px solid var(--rule); border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--ink); outline: none; background: var(--white); }
@@ -512,7 +515,7 @@
           </button>
         </div>
         <div id="boxes-list"></div>
-        <button class="add-box-btn" onclick="addBox()">+ Add new box</button><button class="add-box-btn" style="background:#FFF7ED;color:#C2410C;border-color:#FED7AA;" onclick="addMultiTableBox()">+ Multi Text Table</button><button class="add-box-btn" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0;" onclick="addMultiCheckBox()">+ Multi Check Box</button>
+        <button class="add-box-btn" onclick="addBox()">+ Add new box</button><button class="add-box-btn" style="background:#FFF7ED;color:#C2410C;border-color:#FED7AA;" onclick="addMultiTableBox()">+ Multi Text Table</button><button class="add-box-btn" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0;" onclick="addMultiCheckBox()">+ Multi Check Box</button><button class="add-box-btn" style="background:#EFF6FF;color:#1D4ED8;border-color:#BFDBFE;" onclick="addAutoFillBox()">+ Text Auto Fill</button>
       </div>
     </div>
   </div>
@@ -1044,6 +1047,7 @@ function buildBoxEl(box,bi,pdfFields){
   // Multi Text Table box has its own builder
   if(box.boxType==='multitable') return buildMultiTableBoxEl(box,bi);
   if(box.boxType==='multicheckbox') return buildMultiCheckBoxEl(box,bi);
+  if(box.boxType==='autofill') return buildAutoFillBoxEl(box,bi);
   const div=document.createElement('div');div.className='box-card';div.id='box-'+box.id;
   const isOpen=box.open!==false;
   div.innerHTML=`<div class="box-header" onclick="toggleBox('${box.id}')">
@@ -1281,6 +1285,114 @@ async function toggleBox(boxId){
   saveTemplateLocal(tpl); // memory only, no network call
   const body=document.getElementById('body-'+boxId);const chev=document.getElementById('chev-'+boxId);
   if(body)body.classList.toggle('hidden',!box.open);if(chev)chev.classList.toggle('open',box.open);
+}
+
+// ── TEXT AUTO FILL BOX ──────────────────────────────────────────────────────
+
+async function addAutoFillBox(){
+  const tpl=getTemplate();
+  const box={
+    id:'box_'+Date.now(),
+    boxType:'autofill',
+    name:'Text Auto Fill',
+    afFields:[''],
+    open:true
+  };
+  tpl.boxes.push(box);
+  await saveTemplateNow(tpl);
+  document.getElementById('boxes-list').appendChild(buildAutoFillBoxEl(box,tpl.boxes.length-1));
+}
+
+function buildAutoFillBoxEl(box,bi){
+  const tpl=getTemplate();
+  const pdfFields=tpl.pdfFields||[];
+  const fields=box.afFields||[''];
+  const isOpen=box.open!==false;
+
+  const fieldRows=fields.map((f,fi)=>`
+    <div class="af-field-row">
+      <select class="mapping-select" style="flex:1;min-width:0;" onchange="updateAfField('${box.id}',${fi},this.value)">
+        <option value="">— select PDF field —</option>
+        ${pdfFields.map(p=>`<option value="${escHtml(p)}" ${f===p?'selected':''}>${escHtml(p)}</option>`).join('')}
+      </select>
+      <span class="mcb-entry-del" onclick="deleteAfField('${box.id}',${fi})">×</span>
+    </div>`).join('');
+
+  const el=document.createElement('div');
+  el.className='box-card';
+  el.id='box-'+box.id;
+  el.innerHTML=`
+    <div class="box-header" onclick="toggleBox('${box.id}')">
+      <div class="box-num">${bi+1}</div>
+      <div class="box-title-wrap">
+        <div class="box-title">${escHtml(box.name||'Text Auto Fill')}</div>
+        <div class="box-field-tag">→ fills ${fields.filter(f=>f).length} PDF field${fields.filter(f=>f).length!==1?'s':''}</div>
+      </div>
+      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
+      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
+    </div>
+    <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
+      <div style="flex:1;">
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Box name</div>
+        <input style="width:100%;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:inherit;font-size:13px;color:var(--ink);background:var(--white);outline:none;" value="${escHtml(box.name||'')}" placeholder="e.g. Client name" oninput="updateAfBoxName('${box.id}',this.value)"/>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">PDF fields to fill — type once, fills all</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">${fieldRows}</div>
+        <button class="btn-add-opt" style="margin-top:8px;" onclick="addAfField('${box.id}')">+ Add field</button>
+      </div>
+    </div>`;
+  return el;
+}
+
+function buildAutoFillFillHTML(box,bi){
+  return `<div class="fill-box-title">Box ${bi+1}: ${escHtml(box.name||'Text Auto Fill')}</div>
+    <div style="font-size:12px;color:var(--ink3);margin-bottom:6px;">Type once — fills ${(box.afFields||[]).filter(f=>f).length} field${(box.afFields||[]).filter(f=>f).length!==1?'s':''} automatically</div>
+    <input type="text" class="fill-input" placeholder="Type here..." oninput="fillAnswers['${box.id}']=this.value"/>`;
+}
+
+function addAfField(boxId){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box) return;
+  if(!box.afFields) box.afFields=[];
+  box.afFields.push('');
+  saveTemplate(tpl);
+  const el=document.getElementById('box-'+boxId);
+  if(el){ const newEl=buildAutoFillBoxEl(box,tpl.boxes.indexOf(box)); el.replaceWith(newEl); }
+}
+
+function updateAfField(boxId, fi, val){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box||!box.afFields) return;
+  box.afFields[fi]=val;
+  saveTemplate(tpl);
+  checkDuplicateFields();
+  const ft=document.querySelector(`#box-${boxId} .box-field-tag`);
+  if(ft) ft.textContent=`→ fills ${box.afFields.filter(f=>f).length} PDF field${box.afFields.filter(f=>f).length!==1?'s':''}`;
+}
+
+function deleteAfField(boxId, fi){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box||!box.afFields) return;
+  box.afFields.splice(fi,1);
+  if(!box.afFields.length) box.afFields=[''];
+  saveTemplate(tpl);
+  const el=document.getElementById('box-'+boxId);
+  if(el){ const newEl=buildAutoFillBoxEl(box,tpl.boxes.indexOf(box)); el.replaceWith(newEl); }
+  checkDuplicateFields();
+}
+
+function updateAfBoxName(boxId, val){
+  const tpl=getTemplate();
+  const box=tpl.boxes.find(b=>b.id===boxId);
+  if(!box) return;
+  box.name=val;
+  saveTemplate(tpl);
+  const titleEl=document.querySelector(`#box-${boxId} .box-title`);
+  if(titleEl) titleEl.textContent=val||'Text Auto Fill';
 }
 
 // ── MULTI CHECK BOX ─────────────────────────────────────────────────────────
@@ -1661,6 +1773,8 @@ function checkDuplicateFields(){
       (box.mttFields||[]).forEach(row=>(row||[]).forEach(f=>{ if(f) fieldCount[f]=(fieldCount[f]||0)+1; }));
     } else if(box.boxType==='multicheckbox'){
       (box.mcbEntries||[]).forEach(e=>{ if(e.pdfField) fieldCount[e.pdfField]=(fieldCount[e.pdfField]||0)+1; });
+    } else if(box.boxType==='autofill'){
+      (box.afFields||[]).forEach(f=>{ if(f) fieldCount[f]=(fieldCount[f]||0)+1; });
     } else {
       if(box.pdfField && box.pdfField!=='__custom__') fieldCount[box.pdfField]=(fieldCount[box.pdfField]||0)+1;
     }
@@ -1712,6 +1826,11 @@ function openFillScreen(){
     }
     if(box.boxType==='multicheckbox'){
       div.innerHTML=buildMultiCheckBoxFillHTML(box,bi);
+      c.appendChild(div);
+      return;
+    }
+    if(box.boxType==='autofill'){
+      div.innerHTML=buildAutoFillFillHTML(box,bi);
       c.appendChild(div);
       return;
     }
@@ -1998,6 +2117,19 @@ async function generatePDF(){
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const form=pdfDoc.getForm();
     tpl.boxes.forEach(box=>{
+      // Text Auto Fill — write same value to multiple fields
+      if(box.boxType==='autofill'){
+        const val=String(fillAnswers[box.id]||'');
+        (box.afFields||[]).forEach(fieldName=>{
+          if(!fieldName) return;
+          try{
+            const tf=form.getTextField(fieldName);
+            tf.enableMultiline(); tf.setFontSize(9); tf.setText(val);
+            tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
+          }catch{ try{form.getDropdown(fieldName).select(val);}catch{} }
+        });
+        return;
+      }
       // Multi Check Box — check/uncheck each checkbox field
       if(box.boxType==='multicheckbox'){
         const answers=fillAnswers[box.id]||{};
