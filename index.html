@@ -2218,19 +2218,23 @@ async function generatePDF(){
         tf.setFontSize(9);
         tf.setText(assembled);
         tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
-        // Handle Kids fields — Discovery PDFs store value on parent but widget is a child
-        // We must also set V on each child widget so it renders visibly
-        const kids=tf.acroField.dict.lookup(PDFLib.PDFName.of('Kids'));
-        if(kids){
-          const pdfStr=PDFLib.PDFString.of(assembled);
-          for(let ki=0;ki<kids.size();ki++){
-            try{
-              const kid=kids.lookup(ki);
-              kid.dict.set(PDFLib.PDFName.of('V'),pdfStr);
-              kid.dict.delete(PDFLib.PDFName.of('AP'));
-            }catch(e){}
+        // Handle Kids fields (e.g. Discovery PDFs) — set V on each child widget directly
+        try{
+          const kidsArr=tf.acroField.dict.lookupMaybe(PDFLib.PDFName.of('Kids'),PDFLib.PDFArray);
+          if(kidsArr){
+            const pdfStr=PDFLib.PDFString.of(assembled);
+            for(let ki=0;ki<kidsArr.size();ki++){
+              try{
+                const kidRef=kidsArr.lookup(ki);
+                const kidDict=kidRef instanceof PDFLib.PDFDict?kidRef:kidRef.dict;
+                if(kidDict){
+                  kidDict.set(PDFLib.PDFName.of('V'),pdfStr);
+                  kidDict.delete(PDFLib.PDFName.of('AP'));
+                }
+              }catch(ke){}
+            }
           }
-        }
+        }catch(ke){}
       }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
     // Tell Adobe to regenerate all field appearances natively
