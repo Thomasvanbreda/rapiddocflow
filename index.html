@@ -2147,6 +2147,8 @@ async function generatePDF(){
             const tf=form.getTextField(fieldName);
             tf.enableMultiline(); tf.setFontSize(9); tf.setText(val);
             tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
+            const kids=tf.acroField.dict.lookup(PDFLib.PDFName.of('Kids'));
+            if(kids){ const pdfStr=PDFLib.PDFString.of(val); for(let ki=0;ki<kids.size();ki++){ try{ const kid=kids.lookup(ki); kid.dict.set(PDFLib.PDFName.of('V'),pdfStr); kid.dict.delete(PDFLib.PDFName.of('AP')); }catch(e){} } }
           }catch{ try{form.getDropdown(fieldName).select(val);}catch{} }
         });
         return;
@@ -2177,6 +2179,8 @@ async function generatePDF(){
               const tf=form.getTextField(fieldName);
               tf.enableMultiline(); tf.setFontSize(9); tf.setText(val);
               tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
+              const kids=tf.acroField.dict.lookup(PDFLib.PDFName.of('Kids'));
+              if(kids){ const pdfStr=PDFLib.PDFString.of(val); for(let ki=0;ki<kids.size();ki++){ try{ const kid=kids.lookup(ki); kid.dict.set(PDFLib.PDFName.of('V'),pdfStr); kid.dict.delete(PDFLib.PDFName.of('AP')); }catch(e){} } }
             }catch{ try{form.getDropdown(fieldName).select(val);}catch{} }
           }
         }
@@ -2213,9 +2217,20 @@ async function generatePDF(){
         tf.enableMultiline();
         tf.setFontSize(9);
         tf.setText(assembled);
-        // Remove our generated appearance so Adobe renders it natively
-        // This prevents invisible text when content exceeds field size
         tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
+        // Handle Kids fields — Discovery PDFs store value on parent but widget is a child
+        // We must also set V on each child widget so it renders visibly
+        const kids=tf.acroField.dict.lookup(PDFLib.PDFName.of('Kids'));
+        if(kids){
+          const pdfStr=PDFLib.PDFString.of(assembled);
+          for(let ki=0;ki<kids.size();ki++){
+            try{
+              const kid=kids.lookup(ki);
+              kid.dict.set(PDFLib.PDFName.of('V'),pdfStr);
+              kid.dict.delete(PDFLib.PDFName.of('AP'));
+            }catch(e){}
+          }
+        }
       }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
     });
     // Tell Adobe to regenerate all field appearances natively
