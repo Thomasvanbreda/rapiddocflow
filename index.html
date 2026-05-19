@@ -2218,18 +2218,19 @@ async function generatePDF(){
         tf.setFontSize(9);
         tf.setText(assembled);
         tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
-        // Handle Kids fields (e.g. Discovery PDFs) — set V on each child widget directly
+        // Handle Kids fields (Discovery PDFs etc) — set V on each child widget directly
         try{
-          const kidsArr=tf.acroField.dict.lookupMaybe(PDFLib.PDFName.of('Kids'),PDFLib.PDFArray);
-          if(kidsArr){
+          const kidsRaw=tf.acroField.dict.get(PDFLib.PDFName.of('Kids'));
+          if(kidsRaw){
             const pdfStr=PDFLib.PDFString.of(assembled);
-            for(let ki=0;ki<kidsArr.size();ki++){
+            // kidsRaw is a PDFArray — iterate via its asArray() method
+            const kidsArray=kidsRaw.asArray?kidsRaw.asArray():[];
+            for(const kidRef of kidsArray){
               try{
-                const kidRef=kidsArr.lookup(ki);
-                const kidDict=kidRef instanceof PDFLib.PDFDict?kidRef:kidRef.dict;
-                if(kidDict){
-                  kidDict.set(PDFLib.PDFName.of('V'),pdfStr);
-                  kidDict.delete(PDFLib.PDFName.of('AP'));
+                const kidObj=pdfDoc.context.lookup(kidRef);
+                if(kidObj && kidObj.set){
+                  kidObj.set(PDFLib.PDFName.of('V'),pdfStr);
+                  kidObj.delete(PDFLib.PDFName.of('AP'));
                 }
               }catch(ke){}
             }
