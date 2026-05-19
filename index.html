@@ -1004,6 +1004,7 @@ function renderEditor(){
   document.getElementById('editor-title').textContent=tpl.name;
   const fc=tpl.pdfFields.length;
   document.getElementById('editor-subtitle').textContent=fc>0?`${fc} fillable field${fc!==1?'s':''} detected`:'No fillable fields detected — boxes will still work';
+  countMappedFields();
   // Show PDF name
   const nameLabel=document.getElementById('pdf-name-label');
   if(nameLabel) nameLabel.textContent=tpl.pdfName||'(unnamed PDF)';
@@ -1762,9 +1763,29 @@ async function deleteBox(boxId){
   const el=document.getElementById('box-'+boxId);if(el)el.remove();
   tpl.boxes.forEach((box,bi)=>{const n=document.querySelector(`#box-${box.id} .box-num`);if(n)n.textContent=bi+1;});
 }
-function rerenderBoxes(){renderBoxes(); checkDuplicateFields();}
+function rerenderBoxes(){renderBoxes(); checkDuplicateFields(); countMappedFields();}
 
 // ── DUPLICATE FIELD CHECK ────────────────────────────────────────────────────
+function countMappedFields(){
+  const tpl=getTemplate(); if(!tpl) return;
+  const mapped=new Set();
+  tpl.boxes.forEach(box=>{
+    if(box.boxType==='multitable'){
+      (box.mttFields||[]).forEach(row=>(row||[]).forEach(f=>{ if(f) mapped.add(f); }));
+    } else if(box.boxType==='multicheckbox'){
+      (box.mcbEntries||[]).forEach(e=>{ if(e.pdfField) mapped.add(e.pdfField); });
+    } else if(box.boxType==='autofill'){
+      (box.afFields||[]).forEach(f=>{ if(f) mapped.add(f); });
+    } else {
+      if(box.pdfField && box.pdfField!=='__custom__') mapped.add(box.pdfField);
+    }
+  });
+  const total=tpl.pdfFields.length;
+  const used=mapped.size;
+  const sub=document.getElementById('editor-subtitle');
+  if(sub) sub.textContent=total>0?`${used} of ${total} fields mapped`:'No fillable fields detected — boxes will still work';
+}
+
 function checkDuplicateFields(){
   const tpl=getTemplate(); if(!tpl) return;
   const fieldCount={};
