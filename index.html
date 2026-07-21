@@ -2145,11 +2145,13 @@ async function generatePDF(){
           if(!fieldName) return;
           try{
             const tf=form.getTextField(fieldName);
+            // Split parent/child fields keep /DA on the widget — without a field-level DA, setFontSize throws
+            if(!tf.acroField.dict.get(PDFLib.PDFName.of('DA'))) tf.acroField.setDefaultAppearance('/Helv 9 Tf 0 g');
             tf.enableMultiline(); tf.setFontSize(9); tf.setText(val);
             tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
             const kids=tf.acroField.dict.lookup(PDFLib.PDFName.of('Kids'));
             if(kids){ const pdfStr=PDFLib.PDFString.of(val); for(let ki=0;ki<kids.size();ki++){ try{ const kid=kids.lookup(ki); kid.dict.set(PDFLib.PDFName.of('V'),pdfStr); kid.dict.delete(PDFLib.PDFName.of('AP')); }catch(e){} } }
-          }catch{ try{form.getDropdown(fieldName).select(val);}catch{} }
+          }catch(e){ try{form.getDropdown(fieldName).select(val);}catch{ console.warn('Autofill field error:',fieldName,e.message); } }
         });
         return;
       }
@@ -2177,11 +2179,12 @@ async function generatePDF(){
             if(!fieldName) continue;
             try{
               const tf=form.getTextField(fieldName);
+              if(!tf.acroField.dict.get(PDFLib.PDFName.of('DA'))) tf.acroField.setDefaultAppearance('/Helv 9 Tf 0 g');
               tf.enableMultiline(); tf.setFontSize(9); tf.setText(val);
               tf.acroField.dict.delete(PDFLib.PDFName.of("AP"));
               const kids=tf.acroField.dict.lookup(PDFLib.PDFName.of('Kids'));
               if(kids){ const pdfStr=PDFLib.PDFString.of(val); for(let ki=0;ki<kids.size();ki++){ try{ const kid=kids.lookup(ki); kid.dict.set(PDFLib.PDFName.of('V'),pdfStr); kid.dict.delete(PDFLib.PDFName.of('AP')); }catch(e){} } }
-            }catch{ try{form.getDropdown(fieldName).select(val);}catch{} }
+            }catch(e){ try{form.getDropdown(fieldName).select(val);}catch{ console.warn('Table field error:',fieldName,e.message); } }
           }
         }
         return;
@@ -2214,6 +2217,7 @@ async function generatePDF(){
       }).join(' ').trim();
       try{
         const tf=form.getTextField(box.pdfField);
+        if(!tf.acroField.dict.get(PDFLib.PDFName.of('DA'))) tf.acroField.setDefaultAppearance('/Helv 9 Tf 0 g');
         tf.enableMultiline();
         tf.setFontSize(9);
         tf.setText(assembled);
@@ -2236,7 +2240,7 @@ async function generatePDF(){
             }
           }
         }catch(ke){}
-      }catch{ try{form.getDropdown(box.pdfField).select(assembled);}catch{} }
+      }catch(e){ try{form.getDropdown(box.pdfField).select(assembled);}catch{ console.warn('Field fill error:',box.pdfField,e.message); } }
     });
     // Tell Adobe to regenerate all field appearances natively
     // This ensures text is always visible regardless of content length
