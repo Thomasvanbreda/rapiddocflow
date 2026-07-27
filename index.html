@@ -111,9 +111,10 @@
   .box-chevron.open { transform: rotate(180deg); }
   .box-del { font-size: 18px; color: var(--ink3); cursor: pointer; padding: 0 4px; opacity: 0.4; transition: all 0.2s; border-radius: 6px; }
   .box-del:hover { opacity: 1; color: var(--danger); background: #FEE2E2; }
-  .box-move { font-size: 12px; color: var(--ink3); cursor: pointer; padding: 0 3px; opacity: 0.4; transition: all 0.2s; border-radius: 6px; }
-  .box-move:hover { opacity: 1; color: var(--ink); background: var(--rule); }
-  .box-move.disabled { opacity: 0.15; cursor: default; pointer-events: none; }
+  .box-drag { font-size: 13px; color: var(--ink3); cursor: grab; padding: 0 4px; opacity: 0.5; letter-spacing: -2px; user-select: none; }
+  .box-drag:hover { opacity: 1; color: var(--ink); }
+  .box-card.dragging { opacity: 0.45; }
+  .box-card.drag-over { outline: 2px dashed var(--ink3); outline-offset: -2px; }
   .box-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; background: #FAFAFA; }
   .box-body.hidden { display: none; }
   .sentence-preview { background: var(--white); border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 13px 16px; font-size: 13px; color: var(--ink); line-height: 1.75; min-height: 46px; box-shadow: var(--shadow-sm); }
@@ -1042,20 +1043,48 @@ async function handleReplacePdf(e){
   e.target.value='';
 }
 
-function moveBox(boxId,dir){
+let dragBoxIdG=null;
+function attachBoxDrag(el,boxId){
+  el.addEventListener('dragstart',e=>dragBoxStart(e,boxId));
+  el.addEventListener('dragend',e=>dragBoxEnd(e,boxId));
+  el.addEventListener('dragover',dragBoxOver);
+  el.addEventListener('dragleave',dragBoxLeave);
+  el.addEventListener('drop',e=>dragBoxDrop(e,boxId));
+}
+function dragBoxStart(e,boxId){
+  if(e.target&&e.target.closest&&e.target.closest('.segment'))return; // segment drags bubble up — ignore
+  dragBoxIdG=boxId;
+  e.dataTransfer.effectAllowed='move';
+  setTimeout(()=>{const el=document.getElementById('box-'+boxId);if(el)el.classList.add('dragging');},0);
+}
+function dragBoxEnd(e,boxId){
+  const el=document.getElementById('box-'+boxId);
+  if(el){el.classList.remove('dragging');el.draggable=false;}
+  document.querySelectorAll('.box-card.drag-over').forEach(c=>c.classList.remove('drag-over'));
+  dragBoxIdG=null;
+}
+function dragBoxOver(e){
+  if(!dragBoxIdG)return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragBoxLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function dragBoxDrop(e,targetBoxId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(!dragBoxIdG||dragBoxIdG===targetBoxId)return;
   const tpl=getTemplate();
-  const i=tpl.boxes.findIndex(b=>b.id===boxId);
-  const j=i+dir;
-  if(i<0||j<0||j>=tpl.boxes.length) return;
-  [tpl.boxes[i],tpl.boxes[j]]=[tpl.boxes[j],tpl.boxes[i]];
+  const fromIdx=tpl.boxes.findIndex(b=>b.id===dragBoxIdG);
+  const toIdx=tpl.boxes.findIndex(b=>b.id===targetBoxId);
+  if(fromIdx===-1||toIdx===-1)return;
+  const [moved]=tpl.boxes.splice(fromIdx,1);
+  tpl.boxes.splice(toIdx,0,moved);
+  dragBoxIdG=null;
   saveTemplate(tpl);
   renderBoxes();
-}
-
-function moveBtnsHTML(boxId,bi){
-  const last=getTemplate().boxes.length-1;
-  return `<span class="box-move ${bi===0?'disabled':''}" title="Move up" onclick="event.stopPropagation();moveBox('${boxId}',-1)">▲</span>
-    <span class="box-move ${bi===last?'disabled':''}" title="Move down" onclick="event.stopPropagation();moveBox('${boxId}',1)">▼</span>`;
 }
 
 function renderBoxes(){
@@ -1068,14 +1097,13 @@ function buildBoxEl(box,bi,pdfFields){
   if(box.boxType==='multitable') return buildMultiTableBoxEl(box,bi);
   if(box.boxType==='multicheckbox') return buildMultiCheckBoxEl(box,bi);
   if(box.boxType==='autofill') return buildAutoFillBoxEl(box,bi);
-  const div=document.createElement('div');div.className='box-card';div.id='box-'+box.id;
+  const div=document.createElement('div');div.className='box-card';div.id='box-'+box.id;attachBoxDrag(div,box.id);
   const isOpen=box.open!==false;
   div.innerHTML=`<div class="box-header" onclick="toggleBox('${box.id}')">
+    <span class="box-drag" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="event.stopPropagation();this.closest('.box-card').draggable=true" onmouseup="this.closest('.box-card').draggable=false">⋮⋮</span>
     <div class="box-num">${bi+1}</div>
     <div class="box-title-wrap"><div class="box-title">${box.name||'Unnamed box'}</div><div class="box-field-tag">→ PDF field: <em>${box.pdfField||'not mapped'}</em></div></div>
-    <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
-    ${moveBtnsHTML(box.id,bi)}
-    <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
+    <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>    <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
   </div>
   <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
     <div style="display:flex;gap:10px;flex-wrap:wrap;min-width:0;overflow:hidden;">
@@ -1342,16 +1370,16 @@ function buildAutoFillBoxEl(box,bi){
   const el=document.createElement('div');
   el.className='box-card';
   el.id='box-'+box.id;
+  attachBoxDrag(el,box.id);
   el.innerHTML=`
     <div class="box-header" onclick="toggleBox('${box.id}')">
+      <span class="box-drag" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="event.stopPropagation();this.closest('.box-card').draggable=true" onmouseup="this.closest('.box-card').draggable=false">⋮⋮</span>
       <div class="box-num">${bi+1}</div>
       <div class="box-title-wrap">
         <div class="box-title">${escHtml(box.name||'Text Auto Fill')}</div>
         <div class="box-field-tag">→ fills ${fields.filter(f=>f).length} PDF field${fields.filter(f=>f).length!==1?'s':''}</div>
       </div>
-      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
-      ${moveBtnsHTML(box.id,bi)}
-      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
+      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
     </div>
     <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
       <div style="flex:1;">
@@ -1457,16 +1485,16 @@ function buildMultiCheckBoxEl(box,bi){
   const el=document.createElement('div');
   el.className='box-card';
   el.id='box-'+box.id;
+  attachBoxDrag(el,box.id);
   el.innerHTML=`
     <div class="box-header" onclick="toggleBox('${box.id}')">
+      <span class="box-drag" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="event.stopPropagation();this.closest('.box-card').draggable=true" onmouseup="this.closest('.box-card').draggable=false">⋮⋮</span>
       <div class="box-num">${bi+1}</div>
       <div class="box-title-wrap">
         <div class="box-title">${escHtml(box.name||'Multi Check Box')}</div>
         <div class="box-field-tag">→ ${entries.length} checkbox field${entries.length!==1?'s':''}</div>
       </div>
-      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
-      ${moveBtnsHTML(box.id,bi)}
-      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
+      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
     </div>
     <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
       <div style="flex:1;min-width:160px;">
@@ -1626,16 +1654,16 @@ function buildMultiTableBoxEl(box,bi){
   const el=document.createElement('div');
   el.className='box-card';
   el.id='box-'+box.id;
+  attachBoxDrag(el,box.id);
   el.innerHTML=`
     <div class="box-header" onclick="toggleBox('${box.id}')">
+      <span class="box-drag" title="Drag to reorder" onclick="event.stopPropagation()" onmousedown="event.stopPropagation();this.closest('.box-card').draggable=true" onmouseup="this.closest('.box-card').draggable=false">⋮⋮</span>
       <div class="box-num">${bi+1}</div>
       <div class="box-title-wrap">
         <div class="box-title">${escHtml(box.name||'Multi Text Table')}</div>
         <div class="box-field-tag">→ ${rows}×${cols} table · ${rows*cols} PDF fields</div>
       </div>
-      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
-      ${moveBtnsHTML(box.id,bi)}
-      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
+      <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>      <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
     </div>
     <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
