@@ -111,6 +111,9 @@
   .box-chevron.open { transform: rotate(180deg); }
   .box-del { font-size: 18px; color: var(--ink3); cursor: pointer; padding: 0 4px; opacity: 0.4; transition: all 0.2s; border-radius: 6px; }
   .box-del:hover { opacity: 1; color: var(--danger); background: #FEE2E2; }
+  .box-move { font-size: 12px; color: var(--ink3); cursor: pointer; padding: 0 3px; opacity: 0.4; transition: all 0.2s; border-radius: 6px; }
+  .box-move:hover { opacity: 1; color: var(--ink); background: var(--rule); }
+  .box-move.disabled { opacity: 0.15; cursor: default; pointer-events: none; }
   .box-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; background: #FAFAFA; }
   .box-body.hidden { display: none; }
   .sentence-preview { background: var(--white); border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 13px 16px; font-size: 13px; color: var(--ink); line-height: 1.75; min-height: 46px; box-shadow: var(--shadow-sm); }
@@ -1039,6 +1042,22 @@ async function handleReplacePdf(e){
   e.target.value='';
 }
 
+function moveBox(boxId,dir){
+  const tpl=getTemplate();
+  const i=tpl.boxes.findIndex(b=>b.id===boxId);
+  const j=i+dir;
+  if(i<0||j<0||j>=tpl.boxes.length) return;
+  [tpl.boxes[i],tpl.boxes[j]]=[tpl.boxes[j],tpl.boxes[i]];
+  saveTemplate(tpl);
+  renderBoxes();
+}
+
+function moveBtnsHTML(boxId,bi){
+  const last=getTemplate().boxes.length-1;
+  return `<span class="box-move ${bi===0?'disabled':''}" title="Move up" onclick="event.stopPropagation();moveBox('${boxId}',-1)">▲</span>
+    <span class="box-move ${bi===last?'disabled':''}" title="Move down" onclick="event.stopPropagation();moveBox('${boxId}',1)">▼</span>`;
+}
+
 function renderBoxes(){
   const tpl=getTemplate();const c=document.getElementById('boxes-list');c.innerHTML='';
   tpl.boxes.forEach((box,bi)=>c.appendChild(buildBoxEl(box,bi,tpl.pdfFields)));
@@ -1055,6 +1074,7 @@ function buildBoxEl(box,bi,pdfFields){
     <div class="box-num">${bi+1}</div>
     <div class="box-title-wrap"><div class="box-title">${box.name||'Unnamed box'}</div><div class="box-field-tag">→ PDF field: <em>${box.pdfField||'not mapped'}</em></div></div>
     <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
+    ${moveBtnsHTML(box.id,bi)}
     <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
   </div>
   <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
@@ -1330,6 +1350,7 @@ function buildAutoFillBoxEl(box,bi){
         <div class="box-field-tag">→ fills ${fields.filter(f=>f).length} PDF field${fields.filter(f=>f).length!==1?'s':''}</div>
       </div>
       <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
+      ${moveBtnsHTML(box.id,bi)}
       <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
     </div>
     <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
@@ -1444,6 +1465,7 @@ function buildMultiCheckBoxEl(box,bi){
         <div class="box-field-tag">→ ${entries.length} checkbox field${entries.length!==1?'s':''}</div>
       </div>
       <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
+      ${moveBtnsHTML(box.id,bi)}
       <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
     </div>
     <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
@@ -1612,6 +1634,7 @@ function buildMultiTableBoxEl(box,bi){
         <div class="box-field-tag">→ ${rows}×${cols} table · ${rows*cols} PDF fields</div>
       </div>
       <span class="box-chevron ${isOpen?'open':''}" id="chev-${box.id}">▼</span>
+      ${moveBtnsHTML(box.id,bi)}
       <span class="box-del" onclick="event.stopPropagation();deleteBox('${box.id}')">×</span>
     </div>
     <div class="box-body ${isOpen?'':'hidden'}" id="body-${box.id}">
